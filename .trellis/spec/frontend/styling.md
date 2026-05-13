@@ -297,6 +297,23 @@ function ArrowRight({ color }: { color: string }) {
 }
 ```
 
+### NButton — Pattern Chuẩn Với boxShadow
+
+Vì `boxShadow` bị drop trong Pressable style function, `NButton` dùng pattern View wrapper:
+
+```tsx
+// Pattern chuẩn cho mọi button có Neumorphic shadow
+<View style={[shadow('accent', 'md'), { height: 60, borderRadius: 999, backgroundColor: c.accent }]}>
+  <Pressable style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center' }]}>
+    {({ pressed }) => (
+      <View style={{ opacity: pressed ? 0.82 : 1, alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+        <Text style={{ color: '#fff', includeFontPadding: false }}>Label</Text>
+      </View>
+    )}
+  </Pressable>
+</View>
+```
+
 ### Slide Transition — Không Dùng ScrollView Paging
 
 `ScrollView` với `pagingEnabled` tạo cảm giác "vuốt trang" — không phải transition mượt.

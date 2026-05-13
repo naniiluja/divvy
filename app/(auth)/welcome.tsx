@@ -147,13 +147,19 @@ function NDots({ count, activeIndex, c, shadow }: { count: number; activeIndex: 
 
 function ArrowRight({ color }: { color: string }) {
   return (
-    <View style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ width: 14, height: 2, backgroundColor: color, borderRadius: 1 }} />
+    <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
+      {/* horizontal bar */}
+      <View style={{ width: 14, height: 2.5, backgroundColor: color, borderRadius: 2, marginRight: -2 }} />
+      {/* chevron head — top & right border */}
       <View style={{
-        position: 'absolute', right: 0,
-        width: 8, height: 8,
-        borderTopWidth: 2, borderRightWidth: 2,
-        borderColor: color, borderRadius: 1,
+        position: 'absolute',
+        right: 5,
+        width: 9,
+        height: 9,
+        borderTopWidth: 2.5,
+        borderRightWidth: 2.5,
+        borderColor: color,
+        borderTopRightRadius: 2,
         transform: [{ rotate: '45deg' }],
       }} />
     </View>

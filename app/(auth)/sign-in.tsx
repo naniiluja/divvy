@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { View, Text, Pressable, TextInput, Alert, StyleSheet } from 'react-native'
+import { useState, useRef } from 'react'
+import { View, Text, Pressable, TextInput, Alert, StyleSheet, Animated } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
@@ -15,6 +15,8 @@ export default function SignInScreen() {
   const [method, setMethod] = useState<Method>('phone')
   const [value, setValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [toggleWidth, setToggleWidth] = useState(0)
+  const slideAnim = useRef(new Animated.Value(0)).current
   const { shadow } = useNeumorphic()
   const { isDark } = useTheme()
   const c = isDark ? DARK : LIGHT
@@ -22,6 +24,18 @@ export default function SignInScreen() {
   const valid = method === 'phone'
     ? value.replace(/\D/g, '').length >= 9
     : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+
+  const switchMethod = (m: Method) => {
+    if (m === method) return
+    Animated.spring(slideAnim, {
+      toValue: m === 'phone' ? 0 : 1,
+      useNativeDriver: false,
+      tension: 68,
+      friction: 11,
+    }).start()
+    setMethod(m)
+    setValue('')
+  }
 
   const handleContinue = async () => {
     setIsLoading(true)
@@ -41,6 +55,10 @@ export default function SignInScreen() {
     }
   }
 
+  // pill width = (totalWidth - 2*padding) / 2
+  const PADDING = 5
+  const pillWidth = toggleWidth > 0 ? (toggleWidth - PADDING * 2) / 2 : 0
+
   return (
     <View style={[styles.screen, { backgroundColor: c.bg }]}>
       <View style={styles.content}>
@@ -57,23 +75,41 @@ export default function SignInScreen() {
 
         <View style={{ gap: 16 }}>
           {/* Segmented toggle */}
-          <View style={[styles.toggle, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
-            <View style={[
-              styles.togglePill,
-              {
-                backgroundColor: c.bg,
-                left: method === 'phone' ? 5 : '50%',
-                ...shadow('raised', 'sm'),
-              },
-            ]} />
+          <View
+            onLayout={e => setToggleWidth(e.nativeEvent.layout.width)}
+            style={[styles.toggle, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}
+          >
+            {/* Sliding pill */}
+            {pillWidth > 0 && (
+              <Animated.View
+                style={[
+                  {
+                    position: 'absolute',
+                    top: PADDING,
+                    bottom: PADDING,
+                    width: pillWidth,
+                    borderRadius: RADIUS.pill,
+                    backgroundColor: c.bg,
+                    left: slideAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [PADDING, PADDING + pillWidth],
+                    }),
+                  },
+                  shadow('raised', 'sm'),
+                ]}
+              />
+            )}
             {(['phone', 'email'] as Method[]).map(m => (
               <Pressable
                 key={m}
-                onPress={() => { setMethod(m); setValue('') }}
+                onPress={() => switchMethod(m)}
                 style={styles.toggleOption}
               >
-                <Text style={{ fontSize: 14, fontWeight: '600', color: method === m ? c.accent : c.textMid }}>
-                  {m === 'phone' ? '📱 Phone' : '✉️ Email'}
+                <Text style={[
+                  styles.toggleText,
+                  { color: method === m ? c.accent : c.textMid },
+                ]}>
+                  {m === 'phone' ? 'Phone' : 'Email'}
                 </Text>
               </Pressable>
             ))}
@@ -82,7 +118,7 @@ export default function SignInScreen() {
           {/* Phone input */}
           {method === 'phone' ? (
             <View style={[styles.phoneInput, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
-              <Text style={{ fontSize: 22 }}>🇻🇳</Text>
+              <Text style={styles.flagEmoji}>🇻🇳</Text>
               <Text style={[styles.countryCode, { color: c.textDark }]}>+84</Text>
               <View style={[styles.divider, { backgroundColor: c.textLight }]} />
               <TextInput
@@ -91,7 +127,7 @@ export default function SignInScreen() {
                 placeholder="912 345 678"
                 placeholderTextColor={c.textLight}
                 keyboardType="phone-pad"
-                style={[styles.phoneInputText, { color: c.textDark }]}
+                style={[styles.inputText, { color: c.textDark }]}
                 autoFocus
               />
             </View>
@@ -104,7 +140,7 @@ export default function SignInScreen() {
                 placeholderTextColor={c.textLight}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                style={[styles.emailInputText, { color: c.textDark }]}
+                style={[styles.inputText, { color: c.textDark }]}
                 autoFocus
               />
             </View>
@@ -122,7 +158,7 @@ export default function SignInScreen() {
         <View style={{ flex: 1 }} />
 
         <NButton
-          label={`Gửi mã →`}
+          label="Gửi mã →"
           onPress={handleContinue}
           isLoading={isLoading}
           isDisabled={!valid}
@@ -149,10 +185,7 @@ const styles = StyleSheet.create({
     letterSpacing: -1.05,
     lineHeight: 33,
   },
-  subtitle: {
-    fontSize: 15,
-    lineHeight: 22.5,
-  },
+  subtitle: { fontSize: 15, lineHeight: 22.5 },
   toggle: {
     height: 52,
     borderRadius: RADIUS.pill,
@@ -160,18 +193,16 @@ const styles = StyleSheet.create({
     padding: 5,
     position: 'relative',
   },
-  togglePill: {
-    position: 'absolute',
-    top: 5,
-    bottom: 5,
-    width: '47%',
-    borderRadius: RADIUS.pill,
-  },
   toggleOption: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.28,
   },
   phoneInput: {
     height: 60,
@@ -182,28 +213,17 @@ const styles = StyleSheet.create({
     paddingRight: 6,
     gap: 10,
   },
-  countryCode: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  divider: {
-    width: 1,
-    height: 28,
-    opacity: 0.4,
-  },
-  phoneInputText: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    letterSpacing: 0.04 * 18,
-  },
   emailInput: {
     height: 60,
     borderRadius: RADIUS.input,
     paddingHorizontal: 22,
     justifyContent: 'center',
   },
-  emailInputText: {
+  flagEmoji: { fontSize: 22 },
+  countryCode: { fontSize: 16, fontWeight: '600' },
+  divider: { width: 1, height: 28, opacity: 0.4 },
+  inputText: {
+    flex: 1,
     fontSize: 17,
     fontWeight: '500',
   },

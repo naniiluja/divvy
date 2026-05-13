@@ -1,4 +1,4 @@
-import { Pressable, Text, ActivityIndicator, StyleSheet } from 'react-native'
+import { Pressable, Text, ActivityIndicator, View, StyleSheet } from 'react-native'
 import type { FC } from 'react'
 import * as Haptics from 'expo-haptics'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
@@ -18,17 +18,8 @@ interface NButtonProps {
   fullWidth?: boolean
 }
 
-const heights: Record<NButtonSize, number> = {
-  lg: 60,
-  md: 52,
-  sm: 44,
-}
-
-const fontSizes: Record<NButtonSize, number> = {
-  lg: 17,
-  md: 15,
-  sm: 14,
-}
+const HEIGHT: Record<NButtonSize, number> = { lg: 60, md: 60, sm: 44 }
+const FONTSIZE: Record<NButtonSize, number> = { lg: 17, md: 17, sm: 14 }
 
 export const NButton: FC<NButtonProps> = ({
   label,
@@ -50,63 +41,63 @@ export const NButton: FC<NButtonProps> = ({
   }
 
   const isAccent = variant === 'accent'
-
-  const accentShadow = shadow('accent')
-  const ghostShadow = shadow('raised', 'sm')
-
-  const containerStyle = StyleSheet.flatten([
-    styles.base,
-    {
-      height: heights[size],
-      borderRadius: RADIUS.pill,
-      alignSelf: fullWidth ? ('stretch' as const) : ('auto' as const),
-      backgroundColor: isAccent ? c.accent : c.bg,
-      opacity: isDisabled || isLoading ? 0.5 : 1,
-    },
-    isAccent ? accentShadow : ghostShadow,
-    !isAccent && {
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(73,82,110,0.3)' : 'rgba(163,177,198,0.4)',
-    },
-  ])
+  const shadowStyle = isAccent ? shadow('accent', 'md') : shadow('raised', 'sm')
 
   return (
-    <Pressable
-      onPress={handlePress}
-      disabled={isDisabled || isLoading}
-      style={({ pressed }) => [containerStyle, pressed && styles.pressed]}
+    <View
+      style={[
+        shadowStyle,
+        {
+          height: HEIGHT[size],
+          borderRadius: RADIUS.pill,
+          backgroundColor: isAccent ? c.accent : c.bg,
+          alignSelf: fullWidth ? 'stretch' : 'auto',
+          opacity: isDisabled ? 0.5 : 1,
+        },
+      ]}
     >
-      {isLoading ? (
-        <ActivityIndicator color={isAccent ? '#fff' : c.accent} size="small" />
-      ) : (
-        <Text
-          style={[
-            styles.label,
-            {
-              fontSize: fontSizes[size],
-              color: isAccent ? '#FFFFFF' : c.accent,
-            },
-          ]}
-        >
-          {label}
-        </Text>
-      )}
-    </Pressable>
+      <Pressable
+        onPress={handlePress}
+        disabled={isDisabled || isLoading}
+        style={[
+          StyleSheet.absoluteFillObject,
+          styles.inner,
+        ]}
+      >
+        {({ pressed }) => (
+          <View style={[styles.inner, pressed && styles.pressed]}>
+            {isLoading ? (
+              <ActivityIndicator color={isAccent ? '#fff' : c.accent} size="small" />
+            ) : (
+              <Text style={[
+                styles.label,
+                { fontSize: FONTSIZE[size], color: isAccent ? '#fff' : c.accent },
+              ]}>
+                {label}
+              </Text>
+            )}
+          </View>
+        )}
+      </Pressable>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  base: {
-    paddingHorizontal: 24,
+  inner: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
+    borderRadius: RADIUS.pill,
+    overflow: 'hidden',
   },
   pressed: {
-    opacity: 0.8,
+    opacity: 0.82,
   },
   label: {
     fontWeight: '600',
+    letterSpacing: -0.2,
     textAlign: 'center',
+    includeFontPadding: false,
   },
 })

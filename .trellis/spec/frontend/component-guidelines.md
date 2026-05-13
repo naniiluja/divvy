@@ -98,6 +98,100 @@ Never render a blank screen. Never throw during render for async failures.
 
 ---
 
+## Critical Gotchas — React Native + boxShadow (RN 0.81)
+
+### Don't: boxShadow trong Pressable style function
+
+> **Warning**: `boxShadow` object bị drop khi đặt trong `style={({ pressed }) => [...]}` của `Pressable`.
+
+```tsx
+// ❌ Sai — shadow bị mất hoàn toàn, chỉ còn màu nền
+<Pressable
+  style={({ pressed }) => [
+    { backgroundColor: c.accent, opacity: pressed ? 0.8 : 1 },
+    shadow('accent', 'md'),   // ← boxShadow bị drop ở đây
+  ]}
+>
+```
+
+```tsx
+// ✅ Đúng — tách View chứa shadow, Pressable dùng absoluteFillObject
+<View style={[shadowStyle, { height, borderRadius, backgroundColor }]}>
+  <Pressable style={[StyleSheet.absoluteFillObject, styles.inner]}>
+    {({ pressed }) => (
+      <View style={[styles.inner, pressed && styles.pressed]}>
+        <Text>{label}</Text>
+      </View>
+    )}
+  </Pressable>
+</View>
+```
+
+**Tại sao**: RN merge style arrays theo thứ tự, nhưng `boxShadow` là object phức tạp — khi kết hợp với function style của Pressable, RN flatten không đúng. Giải pháp: outer `View` chứa shadow + background, inner `Pressable` chứa opacity.
+
+### Don't: opacity trên View chứa boxShadow
+
+> **Warning**: Đặt `opacity` trên cùng View với `boxShadow` làm shadow bị ẩn theo opacity.
+
+```tsx
+// ❌ Sai — shadow biến mất khi opacity < 1
+<View style={[shadow('accent'), { opacity: 0.5 }]} />
+
+// ✅ Đúng — opacity trên inner element, không phải shadow wrapper
+<View style={shadow('accent')}>
+  <View style={{ opacity: isDisabled ? 0.5 : 1 }}>...</View>
+</View>
+```
+
+### Don't: StyleSheet.flatten với boxShadow
+
+> **Warning**: `StyleSheet.flatten([...])` loại bỏ `boxShadow` array — không dùng flatten khi style có shadow.
+
+```tsx
+// ❌ Sai
+const merged = StyleSheet.flatten([styles.base, shadowStyle])
+
+// ✅ Đúng — spread trực tiếp vào style array
+<View style={[styles.base, shadowStyle]} />
+```
+
+### Text lệch trên Android — includeFontPadding
+
+Android mặc định thêm padding trên/dưới text, làm chữ bị lệch khỏi center.
+
+```tsx
+// ✅ Luôn thêm vào Text trong button/tag
+<Text style={{ includeFontPadding: false }}>Label</Text>
+```
+
+### Toggle Segmented — Width chính xác với onLayout
+
+Không dùng `width: '47%'` hay hardcode pixel — sai trên mọi màn hình. Dùng `onLayout` để đo width thực:
+
+```tsx
+const [toggleWidth, setToggleWidth] = useState(0)
+const PADDING = 5
+const pillWidth = toggleWidth > 0 ? (toggleWidth - PADDING * 2) / 2 : 0
+
+<View onLayout={e => setToggleWidth(e.nativeEvent.layout.width)}>
+  {pillWidth > 0 && (
+    <Animated.View style={{
+      position: 'absolute',
+      top: PADDING, bottom: PADDING,
+      width: pillWidth,
+      left: slideAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [PADDING, PADDING + pillWidth],
+      }),
+    }} />
+  )}
+</View>
+```
+
+**Tại sao**: `pillWidth = (totalWidth - 2*padding) / 2` đảm bảo pill khít đúng 50% bất kể screen size.
+
+---
+
 ## Neumorphic Components — Shared Primitives
 
 Các component Neumorphic tái sử dụng trong `components/ui/`:
