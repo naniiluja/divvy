@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Recurse .claude/)",
+      "Bash(Select-Object FullName)",
+      "Bash(Get-ChildItem -Recurse .trellis/)"
+    ]
+  },
+  "outputStyle": "rem-engineer"
+}
