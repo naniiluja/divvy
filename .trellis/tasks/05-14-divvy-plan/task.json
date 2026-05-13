@@ -1,0 +1,28 @@
+{
+  "id": "divvy-plan",
+  "name": "divvy-plan",
+  "title": "divvy-vibecode-plan",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "Naniiluja",
+  "assignee": "Naniiluja",
+  "createdAt": "2026-05-14",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "05-14-divvy-foundation"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

@@ -170,6 +170,154 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 ## Forbidden
 
-- Không dùng `StyleSheet.create()` hay `style={{}}`.
+- Không dùng `StyleSheet.create()` hay `style={{}}` — ngoại trừ Neumorphic shadows (xem bên dưới).
 - Không dùng hex color hardcode trong className.
 - Không upgrade NativeWind lên v5/v6 mà không kiểm tra RN version compatibility.
+
+---
+
+## Neumorphic Design System (Quan Trọng)
+
+Divvy dùng phong cách **Neumorphism** — dual shadow (tối + sáng) tạo cảm giác element "trồi lên" hoặc "lõm xuống" khỏi nền đơn sắc.
+
+### Dual Shadow — Rule Cốt Lõi
+
+Neumorphic PHẢI có 2 shadow:
+- **Shadow tối**: bottom-right (raised) hoặc top-left (inset)
+- **Shadow sáng**: top-left (raised) hoặc bottom-right (inset)
+
+**Không bao giờ dùng 1 shadow đơn** — đó là flat design thông thường, không phải Neumorphic.
+
+### `useNeumorphic()` Hook — Cách Dùng Đúng
+
+```ts
+import { useNeumorphic } from '@/hooks/useNeumorphic'
+
+const { shadow } = useNeumorphic()
+
+// raised — element trồi lên khỏi nền
+<View style={{ backgroundColor: c.bg, ...shadow('raised', 'md') }} />
+
+// inset — element lõm vào nền (input, pressed state)
+<View style={{ backgroundColor: c.bg, ...shadow('inset', 'sm') }} />
+
+// accent — nút CTA nổi bật với accent color shadow
+<View style={{ backgroundColor: c.accent, ...shadow('accent') }} />
+```
+
+Shadow sizes: `'sm'` | `'md'` | `'lg'`
+
+### RN 0.81 `boxShadow` Array — Tại Sao Dùng
+
+React Native 0.81+ hỗ trợ `boxShadow` array (giống CSS), bao gồm `inset: true`. **Đây là cách duy nhất** để implement đúng Neumorphic dual shadow trên cả iOS và Android.
+
+```ts
+// Đúng — dual shadow với boxShadow array (RN 0.81+)
+{
+  boxShadow: [
+    { offsetX: 8, offsetY: 8, blurRadius: 18, color: darkShadow },
+    { offsetX: -8, offsetY: -8, blurRadius: 18, color: lightShadow },
+  ]
+}
+
+// Sai — single shadow, không phải Neumorphic
+{
+  shadowColor: '...', shadowOffset: { width: 8, height: 8 }, ...
+}
+```
+
+**Exception hợp lệ**: `StyleSheet.create()` được phép CHỈ khi chứa shadow values từ `useNeumorphic()`. Layout, colors, spacing vẫn dùng `className`.
+
+### ThemeColors Type
+
+Dùng `ThemeColors` interface (không phải `typeof LIGHT`) khi pass theme qua props:
+
+```ts
+// Đúng
+import { ThemeColors } from '@/constants/theme'
+function MyComponent({ c }: { c: ThemeColors }) { ... }
+
+// Sai — literal type conflict giữa LIGHT và DARK
+function MyComponent({ c }: { c: typeof LIGHT }) { ... }
+```
+
+### Color Tokens
+
+```ts
+// Light mode
+bg: '#E4E9F2'       // Nền chính — tất cả surfaces dùng màu này
+bg2: '#D9DFEC'      // Nền phụ
+textDark: '#2D3454' // Heading, label chính
+textMid: '#737CA0'  // Subtitle, label phụ
+textLight: '#A6AEC8'// Placeholder, disabled
+accent: '#6C7CFF'   // Periwinkle — primary action
+accent2: '#A78BFA'  // Gradient pair
+
+// Dark mode
+bg: '#262B3D'
+bg2: '#1E2231'
+// ... (xem constants/theme.ts)
+```
+
+**Screen background luôn = `backgroundColor: c.bg`** — không dùng `white` hay `#fff`.
+
+### Typography Spec (đúng theo design)
+
+```
+Logo "divvy":     fontSize: 44, fontWeight: '700', letterSpacing: -1.76
+Title screens:    fontSize: 30, fontWeight: '700', letterSpacing: -1.05, lineHeight: 33
+Welcome title:    fontSize: 34, fontWeight: '700', letterSpacing: -1.19, lineHeight: 38
+Badge text:       fontSize: 11, fontWeight: '600', letterSpacing: 0.88, textTransform: 'uppercase'
+Body text:        fontSize: 15, lineHeight: 23
+Section label:    fontSize: 11-12, fontWeight: '600-700', letterSpacing: 0.88-1.1, textTransform: 'uppercase'
+```
+
+### Icons / Arrows — Không Dùng Ký Tự Unicode
+
+Unicode arrows (`→`, `‹`, `›`) có **baseline lệch** — không căn giữa đúng trong View.
+
+```tsx
+// Sai — baseline lệch
+<Text style={styles.nextBtnText}>→</Text>
+
+// Đúng — vẽ bằng View thuần
+function ArrowRight({ color }: { color: string }) {
+  return (
+    <View style={{ width: 22, height: 22, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: 14, height: 2, backgroundColor: color, borderRadius: 1 }} />
+      <View style={{
+        position: 'absolute', right: 0,
+        width: 8, height: 8,
+        borderTopWidth: 2, borderRightWidth: 2,
+        borderColor: color, borderRadius: 1,
+        transform: [{ rotate: '45deg' }],
+      }} />
+    </View>
+  )
+}
+```
+
+### Slide Transition — Không Dùng ScrollView Paging
+
+`ScrollView` với `pagingEnabled` tạo cảm giác "vuốt trang" — không phải transition mượt.
+Dùng `Animated.parallel` fade + slide thay thế:
+
+```tsx
+// Đúng — crossfade + slide
+const fadeAnim = useRef(new Animated.Value(1)).current
+const slideAnim = useRef(new Animated.Value(0)).current
+
+const goTo = (next: number) => {
+  Animated.parallel([
+    Animated.timing(fadeAnim, { toValue: 0, duration: 160, useNativeDriver: true }),
+    Animated.timing(slideAnim, { toValue: -20, duration: 160, useNativeDriver: true }),
+  ]).start(() => {
+    setActiveIndex(next)
+    slideAnim.setValue(20)
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 220, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start()
+  })
+}
+```

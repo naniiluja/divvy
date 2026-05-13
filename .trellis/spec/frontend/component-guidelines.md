@@ -95,3 +95,67 @@ Never render a blank screen. Never throw during render for async failures.
 - No hardcoded colors — use Tailwind tokens only.
 - No `React.memo` unless profiling proves it necessary.
 - No `key={index}` — always use stable IDs.
+
+---
+
+## Neumorphic Components — Shared Primitives
+
+Các component Neumorphic tái sử dụng trong `components/ui/`:
+
+### `DivvyMark` — Logo Component
+
+Logo "d" trong gradient circle, dùng ở nhiều nơi (Splash, Welcome header, v.v.).
+
+```tsx
+import { DivvyMark } from '@/components/ui/DivvyMark'
+
+<DivvyMark size={42} />   // Welcome header
+<DivvyMark size={132} />  // Splash screen
+```
+
+Tự động scale shadow theo size (`'sm'` khi size < 80, `'lg'` khi size >= 80).
+
+### `NHeader` — Step Header
+
+Header chuẩn cho auth flow — back button (round, raised) + step indicator (inset pill).
+
+```tsx
+import { NHeader } from '@/components/ui/NHeader'
+
+<NHeader step={1} total={5} />                            // dùng router.back()
+<NHeader step={1} total={5} onBack={() => router.replace('/(auth)/welcome')} />  // custom back
+```
+
+### `NButton` — Pill CTA Button
+
+```tsx
+<NButton label="Gửi mã →" onPress={fn} isLoading={false} isDisabled={false} fullWidth />
+```
+
+### `NInput` — Inset Input Field
+
+Height 60, borderRadius 20, inset shadow simulate.
+
+### `NDots` — Slide Progress Dots
+
+Active dot: accent color, width 22. Inactive: textLight, width 8, opacity 0.4.
+
+## Screen Layout Pattern (Auth)
+
+Tất cả auth screens theo cấu trúc này:
+
+```tsx
+<View style={[styles.screen, { backgroundColor: c.bg }]}>
+  <View style={styles.content}>  // paddingHorizontal: 28, paddingTop: 52, paddingBottom: 32
+    <NHeader step={X} total={5} />
+    {/* Heading block */}
+    <View style={{ gap: 8 }}>
+      <Text style={[styles.title, { color: c.textDark }]}>...</Text>
+      <Text style={[styles.subtitle, { color: c.textMid }]}>...</Text>
+    </View>
+    {/* Content */}
+    <View style={{ flex: 1 }} />  {/* spacer đẩy CTA xuống dưới */}
+    <NButton label="..." onPress={fn} fullWidth />
+  </View>
+</View>
+```

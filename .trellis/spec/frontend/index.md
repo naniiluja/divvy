@@ -12,9 +12,13 @@ Before writing any frontend code:
 - [ ] Is there an existing component in `components/` that does something similar?
 - [ ] Does state belong in Zustand (shared) or `useState` (local to one component)?
 - [ ] Does this screen need auth guard? If yes, place inside `app/(app)/` group.
-- [ ] Are you using NativeWind `className` — NOT `StyleSheet.create()`?
-- [ ] Are all text strings handled through `i18n`? (Vietnamese + English)
+- [ ] Are you using NativeWind `className` — NOT `StyleSheet.create()`? (Exception: Neumorphic shadow objects)
 - [ ] Have you handled loading, error, and empty states?
+- [ ] **[Neumorphic]** Does every surface use `backgroundColor: c.bg` (never white)?
+- [ ] **[Neumorphic]** Does every shadow use `shadow('raised'/'inset'/'accent')` from `useNeumorphic()`?
+- [ ] **[Neumorphic]** Are you passing colors via `ThemeColors` type (not `typeof LIGHT`)?
+- [ ] **[Icons]** Are arrows/icons drawn with `View` (not Unicode chars like `→`)?
+- [ ] **[Animation]** Are slide transitions using `Animated.parallel` (not `ScrollView` paging)?
 
 ---
 
@@ -22,13 +26,17 @@ Before writing any frontend code:
 
 Before marking a task done:
 
-- [ ] No inline `style={{}}` props — use `className` only
+- [ ] No inline `style={{}}` props — use `className` only (exception: Neumorphic shadow spread)
 - [ ] No `any` type in component props or hook return values
 - [ ] Loading skeleton shown while Supabase query is in-flight
 - [ ] Error boundary or error state renders without crash
 - [ ] Realtime subscription is unsubscribed on component unmount
 - [ ] Haptic feedback on primary actions (tick, skip)
 - [ ] Safe area insets applied on all root screens
+- [ ] **[Neumorphic]** Raised elements: 2 shadows (dark bottom-right + light top-left)
+- [ ] **[Neumorphic]** Inset elements: 2 inset shadows (dark top-left + light bottom-right)
+- [ ] **[Neumorphic]** No single-shadow elements (= không phải Neumorphic)
+- [ ] **[Package]** Dùng `npx expo install --fix` để align versions — không tự chỉnh package.json
 
 ---
 

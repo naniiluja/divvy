@@ -121,3 +121,35 @@ npx expo install @supabase/supabase-js @react-native-async-storage/async-storage
 - Stores: `camelCaseSlice.ts`
 - Route files: `kebab-case.tsx` or `[param].tsx`
 - Types: `PascalCase` interfaces in `types/index.ts`
+
+---
+
+## Package Version Management
+
+> **Warning**: Không tự chỉnh package.json versions. Expo SDK có peer dependency graph phức tạp.
+
+```bash
+# Đúng — để Expo tự align versions
+npx expo install --fix
+
+# Sai — tự đoán versions, gây peer conflict
+# npm install expo-router@4.0.0  ← đừng làm thế
+```
+
+### Versions Đã Confirm Cho Project Này (SDK 54)
+
+| Package | Version |
+|---|---|
+| `expo` | `~54.0.0` |
+| `expo-router` | `~6.0.23` |
+| `react` | `19.1.0` |
+| `react-native` | `0.81.5` |
+| `nativewind` | `^4.1.23` |
+| `tailwindcss` | `^3.4.0` |
+
+> **Lưu ý RN 0.81**: Hỗ trợ `boxShadow` array với `inset: true` — đây là feature cần thiết cho Neumorphic.
+> Không downgrade xuống RN 0.79 trở xuống.
+
+### Expo Go Version
+
+Emulator/device cần Expo Go **54.0.8** cho SDK 54. Khi CLI hỏi update → chọn **Y**.
