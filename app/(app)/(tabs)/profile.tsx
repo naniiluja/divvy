@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { View, Text, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { useStore } from '@/stores'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
@@ -126,9 +127,11 @@ function SectionCard({ children }: { children: ReactNode }) {
 }
 
 export default function ProfileScreen() {
+  const router = useRouter()
   const user = useStore((s) => s.user)
   const clearSession = useStore((s) => s.clearSession)
   const activeSpaceId = useStore((s) => s.activeSpaceId)
+  const setThemeOverride = useStore((s) => s.setThemeOverride)
 
   const { shadow } = useNeumorphic()
   const { isDark } = useTheme()
@@ -178,6 +181,7 @@ export default function ProfileScreen() {
           onPress: async () => {
             await supabase.auth.signOut()
             clearSession()
+            router.replace('/(auth)/welcome')
           },
         },
       ],
@@ -284,6 +288,7 @@ export default function ProfileScreen() {
             toggled={isDark}
             onToggle={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              setThemeOverride(isDark ? 'light' : 'dark')
             }}
           />
           <View style={[styles.rowDivider, { backgroundColor: c.bg2 }]} />

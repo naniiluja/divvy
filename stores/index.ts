@@ -19,6 +19,7 @@ export const useStore = create<BoundStore>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         activeSpaceId: state.activeSpaceId,
+        themeOverride: state.themeOverride,
       }),
     },
   ),

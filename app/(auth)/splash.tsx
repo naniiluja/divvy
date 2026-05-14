@@ -15,17 +15,24 @@ export default function SplashScreen() {
   const c = isDark ? DARK : LIGHT
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!isLoading) {
-        if (session) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          router.replace('/(app)/(tabs)/' as any)
-        } else {
-          router.replace('/(auth)/welcome')
-        }
+    const navigate = () => {
+      if (session) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        router.replace('/(app)/(tabs)/' as any)
+      } else {
+        router.replace('/(auth)/welcome')
       }
-    }, 2200)
-    return () => clearTimeout(timer)
+    }
+
+    if (!isLoading) {
+      const timer = setTimeout(navigate, 2200)
+      return () => clearTimeout(timer)
+    }
+
+    const fallback = setTimeout(() => {
+      router.replace('/(auth)/welcome')
+    }, 8000)
+    return () => clearTimeout(fallback)
   }, [isLoading, session, router])
 
   const insetSm = shadow('inset', 'sm')
