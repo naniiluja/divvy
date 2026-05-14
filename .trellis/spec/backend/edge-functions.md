@@ -126,8 +126,15 @@ Deno.serve(async (req) => {
   }
 
   // Verify this is called by service role (pg_cron), not a user
-  const authHeader = req.headers.get('Authorization')
-  if (!authHeader?.includes(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)) {
+  // Dùng timing-safe comparison để tránh timing attack
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const expected = `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`
+  const encoder = new TextEncoder()
+  const a = encoder.encode(authHeader.padEnd(expected.length))
+  const b = encoder.encode(expected.padEnd(authHeader.length))
+  let diff = a.length ^ b.length
+  for (let i = 0; i < Math.min(a.length, b.length); i++) diff |= a[i] ^ b[i]
+  if (diff !== 0) {
     return Response.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders })
   }
 

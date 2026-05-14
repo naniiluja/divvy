@@ -26,8 +26,13 @@ export default function InviteScreen() {
   const { isDark } = useTheme()
   const c = isDark ? DARK : LIGHT
 
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
   useEffect(() => {
-    if (!spaceId || !user?.id) return
+    if (!spaceId || !user?.id || !UUID_RE.test(spaceId)) {
+      setIsLoading(false)
+      return
+    }
     getOrCreateInviteLink(spaceId, user.id)
       .then(setInvite)
       .catch((err: Error) => Alert.alert('Lỗi', err.message))

@@ -21,16 +21,25 @@ export default function JoinSpaceScreen() {
   const { isDark } = useTheme()
   const c = isDark ? DARK : LIGHT
 
-  const extractCode = (input: string): string => {
+  const INVITE_CODE_RE = /[a-z0-9_-]{6,12}/i
+  const INVITE_TOKEN_RE = /[a-f0-9]{32}/i
+
+  const extractCode = (input: string): string | null => {
     const trimmed = input.trim()
-    const match = trimmed.match(/([a-z0-9]{8})$/i)
-    return match ? match[1].toLowerCase() : trimmed.toLowerCase()
+    const tokenMatch = trimmed.match(INVITE_TOKEN_RE)
+    if (tokenMatch) return tokenMatch[0].toLowerCase()
+    const codeMatch = trimmed.match(INVITE_CODE_RE)
+    if (codeMatch) return codeMatch[0].toLowerCase()
+    return null
   }
 
   const handleJoin = async () => {
     if (!user?.id) return
     const inviteCode = extractCode(code)
-    if (!inviteCode) return
+    if (!inviteCode) {
+      Alert.alert('Mã không hợp lệ', 'Vui lòng nhập mã mời hoặc dán link mời đầy đủ.')
+      return
+    }
 
     setIsLoading(true)
     try {
@@ -78,7 +87,7 @@ export default function JoinSpaceScreen() {
           label="Tham gia"
           onPress={handleJoin}
           isLoading={isLoading}
-          isDisabled={code.trim().length < 6}
+          isDisabled={extractCode(code) === null}
           fullWidth
         />
       </View>
