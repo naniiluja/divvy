@@ -9,7 +9,7 @@ import { LIGHT, DARK, RADIUS } from '@/constants/theme'
 import { NButton } from '@/components/ui/NButton'
 import { NHeader } from '@/components/ui/NHeader'
 import { useStore } from '@/stores'
-import { createInviteLink } from '@/lib/api'
+import { getOrCreateInviteLink } from '@/lib/api'
 import type { InviteLink } from '@/types'
 
 const APP_SCHEME = 'divvy'
@@ -28,7 +28,7 @@ export default function InviteScreen() {
 
   useEffect(() => {
     if (!spaceId || !user?.id) return
-    createInviteLink(spaceId, user.id)
+    getOrCreateInviteLink(spaceId, user.id)
       .then(setInvite)
       .catch((err: Error) => Alert.alert('Lỗi', err.message))
       .finally(() => setIsLoading(false))

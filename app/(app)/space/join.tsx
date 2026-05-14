@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, Alert, StyleSheet } from 'react-native'
+import { View, Text, Alert, StyleSheet, TextInput } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { NButton } from '@/components/ui/NButton'
@@ -9,7 +9,6 @@ import { useTheme } from '@/hooks/useTheme'
 import { LIGHT, DARK, RADIUS } from '@/constants/theme'
 import { useStore } from '@/stores'
 import { getSpaceByInviteCode, joinSpace } from '@/lib/api'
-import { TextInput } from 'react-native'
 
 export default function JoinSpaceScreen() {
   const router = useRouter()

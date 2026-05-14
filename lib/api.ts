@@ -24,10 +24,19 @@ export async function upsertProfile(profile: Omit<Profile, 'created_at'>): Promi
 }
 
 export async function getSpacesForUser(userId: string): Promise<Space[]> {
+  const { data: memberRows, error: memberError } = await supabase
+    .from('space_members')
+    .select('space_id')
+    .eq('user_id', userId)
+
+  if (memberError || !memberRows?.length) return []
+
+  const spaceIds = memberRows.map((r) => r.space_id)
+
   const { data, error } = await supabase
     .from('spaces')
-    .select('*, space_members!inner(user_id)')
-    .eq('space_members.user_id', userId)
+    .select('*')
+    .in('id', spaceIds)
 
   if (error) return []
   return (data as Space[]) ?? []
@@ -80,7 +89,20 @@ export async function getSpaceMembers(spaceId: string): Promise<SpaceMember[]> {
   return (data as SpaceMember[]) ?? []
 }
 
-export async function createInviteLink(spaceId: string, createdBy: string): Promise<InviteLink> {
+export async function getOrCreateInviteLink(spaceId: string, createdBy: string): Promise<InviteLink> {
+  const now = new Date().toISOString()
+  const { data: existing } = await supabase
+    .from('invite_links')
+    .select('*')
+    .eq('space_id', spaceId)
+    .eq('created_by', createdBy)
+    .gt('expires_at', now)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (existing) return existing as InviteLink
+
   const expiresAt = new Date()
   expiresAt.setDate(expiresAt.getDate() + 7)
 

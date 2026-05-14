@@ -29,11 +29,15 @@ export const NHeader: FC<NHeaderProps> = ({ step, total, onBack }) => {
         <Text style={[styles.backArrow, { color: c.textMid }]}>‹</Text>
       </Pressable>
 
-      <View style={[styles.stepPill, { backgroundColor: c.bg, ...insetSm }]}>
-        <Text style={[styles.stepText, { color: c.textMid }]}>
-          Bước {step}/{total}
-        </Text>
-      </View>
+      {total > 0 ? (
+        <View style={[styles.stepPill, { backgroundColor: c.bg, ...insetSm }]}>
+          <Text style={[styles.stepText, { color: c.textMid }]}>
+            Bước {step}/{total}
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.placeholder} />
+      )}
 
       <View style={styles.placeholder} />
     </View>
