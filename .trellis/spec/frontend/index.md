@@ -13,6 +13,10 @@ Before writing any frontend code:
 - [ ] Does state belong in Zustand (shared) or `useState` (local to one component)?
 - [ ] Does this screen need auth guard? If yes, place inside `app/(app)/` group.
 - [ ] Are you using NativeWind `className` — NOT `StyleSheet.create()`? (Exception: Neumorphic shadow objects)
+- [ ] **[Security]** Session storage dùng `LargeSecureStore` (không phải `AsyncStorage`)?
+- [ ] **[Security]** Auth guard dùng `getUser()` (không phải `getSession()`)?
+- [ ] **[Security]** Deep link params được validate trước khi gọi API?
+- [ ] **[Security]** Zustand persist KHÔNG chứa `session` (Supabase tự handle)?
 - [ ] Have you handled loading, error, and empty states?
 - [ ] **[Neumorphic]** Does every surface use `backgroundColor: c.bg` (never white)?
 - [ ] **[Neumorphic]** Does every shadow use `shadow('raised'/'inset'/'accent')` from `useNeumorphic()`?

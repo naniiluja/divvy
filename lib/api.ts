@@ -121,6 +121,7 @@ export async function getInviteLinkByToken(token: string): Promise<InviteLink | 
     .from('invite_links')
     .select('*, spaces(id, name, emoji)')
     .eq('token', token)
+    .gt('expires_at', new Date().toISOString())
     .single()
 
   if (error) return null

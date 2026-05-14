@@ -12,9 +12,16 @@ export function useSession(): { session: Session | null; isLoading: boolean } {
   useEffect(() => {
     setLoading(true)
 
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession)
-      setLoading(false)
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+      if (error || !user) {
+        setSession(null)
+        setLoading(false)
+        return
+      }
+      supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+        setSession(currentSession)
+        setLoading(false)
+      })
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {

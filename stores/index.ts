@@ -18,8 +18,6 @@ export const useStore = create<BoundStore>()(
       name: 'divvy-store',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
-        // Persist only session token and active space — not UI state
-        session: state.session,
         activeSpaceId: state.activeSpaceId,
       }),
     },

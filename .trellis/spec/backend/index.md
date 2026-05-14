@@ -37,6 +37,7 @@ Before marking a task done:
 | Directory Structure | [directory-structure.md](./directory-structure.md) |
 | Database Schema & RLS | [database-guidelines.md](./database-guidelines.md) |
 | Edge Functions (Deno + Anthropic) | [edge-functions.md](./edge-functions.md) |
+| Security | [security-guidelines.md](./security-guidelines.md) |
 | Error Handling | [error-handling.md](./error-handling.md) |
 | Quality & Forbidden Patterns | [quality-guidelines.md](./quality-guidelines.md) |
 | Logging | [logging-guidelines.md](./logging-guidelines.md) |
