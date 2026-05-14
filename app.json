@@ -42,15 +42,20 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.divvy.app"
+          "iosUrlScheme": "com.googleusercontent.apps.637074957901-5bretnioiedgfr37lrr4uu4lghutmngt"
         }
       ]
     ],
     "extra": {
-      "googleWebClientId": "637074957901-ga51vqfuva6hduqmtvh594elkrtpsrs4.apps.googleusercontent.com"
+      "googleWebClientId": "637074957901-ga51vqfuva6hduqmtvh594elkrtpsrs4.apps.googleusercontent.com",
+      "router": {},
+      "eas": {
+        "projectId": "6043974b-af8d-47bf-a229-d36b2d24adfc"
+      }
     },
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "owner": "souldippy"
   }
 }
