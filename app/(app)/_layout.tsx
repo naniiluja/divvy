@@ -1,9 +1,11 @@
 import { View, ActivityIndicator } from 'react-native'
 import { Redirect, Stack } from 'expo-router'
 import { useSession } from '@/hooks/useSession'
+import { usePushNotifications } from '@/hooks/usePushNotifications'
 
 export default function AppLayout() {
   const { session, isLoading } = useSession()
+  usePushNotifications()
 
   if (isLoading) {
     return (
@@ -26,6 +28,7 @@ export default function AppLayout() {
       <Stack.Screen name="task/new" />
       <Stack.Screen name="task/ai-generate" />
       <Stack.Screen name="space/join" />
+      <Stack.Screen name="notifications" />
     </Stack>
   )
 }
