@@ -209,3 +209,23 @@ export async function getSpaceById(spaceId: string): Promise<Space | null> {
   if (error) return null
   return data as Space
 }
+
+export interface GeneratedTask {
+  name: string
+  icon: string
+  frequency: 'daily' | 'weekly' | '3x_week'
+  assignee_display_name: string | null
+}
+
+export async function callGenerateTasks(
+  input: string,
+  members: { id: string; display_name: string }[],
+): Promise<GeneratedTask[]> {
+  const { data, error } = await supabase.functions.invoke('generate-tasks', {
+    body: { input, members },
+  })
+
+  if (error) throw new Error(error.message)
+  if (data?.error) throw new Error(data.error)
+  return data.tasks as GeneratedTask[]
+}
