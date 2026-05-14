@@ -29,7 +29,7 @@ export default function NewSpaceScreen() {
     try {
       const space = await createSpace(name.trim(), '🏠', user.id)
       setActiveSpaceId(space.id)
-      router.replace('/(app)/(tabs)/')
+      router.replace('/(app)/(tabs)/' as never)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Đã có lỗi xảy ra'
       Alert.alert('Lỗi', message)
