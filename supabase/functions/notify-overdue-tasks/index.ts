@@ -1,11 +1,16 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok')
+    return new Response('ok', { headers: corsHeaders })
   }
 
   const authHeader = req.headers.get('Authorization') ?? ''
