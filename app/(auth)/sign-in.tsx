@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react'
-import { View, Text, Pressable, TextInput, Alert, StyleSheet, Animated } from 'react-native'
+import { View, Text, Pressable, TextInput, Alert, StyleSheet, Animated, Platform } from 'react-native'
 import { useRouter } from 'expo-router'
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin'
+import Constants from 'expo-constants'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
 import { LIGHT, DARK, RADIUS } from '@/constants/theme'
@@ -8,11 +10,15 @@ import { NButton } from '@/components/ui/NButton'
 import { NHeader } from '@/components/ui/NHeader'
 import { supabase } from '@/lib/supabase'
 
-type Method = 'phone' | 'email'
+type Method = 'email' | 'google'
+
+const WEB_CLIENT_ID = (Constants.expoConfig?.extra?.googleWebClientId as string) ?? ''
+
+GoogleSignin.configure({ webClientId: WEB_CLIENT_ID })
 
 export default function SignInScreen() {
   const router = useRouter()
-  const [method, setMethod] = useState<Method>('phone')
+  const [method, setMethod] = useState<Method>('email')
   const [value, setValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [toggleWidth, setToggleWidth] = useState(0)
@@ -21,14 +27,14 @@ export default function SignInScreen() {
   const { isDark } = useTheme()
   const c = isDark ? DARK : LIGHT
 
-  const valid = method === 'phone'
-    ? value.replace(/\D/g, '').length >= 9
-    : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  const valid = method === 'email'
+    ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+    : true
 
   const switchMethod = (m: Method) => {
     if (m === method) return
     Animated.spring(slideAnim, {
-      toValue: m === 'phone' ? 0 : 1,
+      toValue: m === 'email' ? 0 : 1,
       useNativeDriver: false,
       tension: 68,
       friction: 11,
@@ -37,17 +43,12 @@ export default function SignInScreen() {
     setValue('')
   }
 
-  const handleContinue = async () => {
+  const handleEmailContinue = async () => {
     setIsLoading(true)
     try {
-      if (method === 'phone') {
-        const { error } = await supabase.auth.signInWithOtp({ phone: value.trim() })
-        if (error) throw error
-      } else {
-        const { error } = await supabase.auth.signInWithOtp({ email: value.trim() })
-        if (error) throw error
-      }
-      router.push({ pathname: '/(auth)/otp', params: { method, value: value.trim() } })
+      const { error } = await supabase.auth.signInWithOtp({ email: value.trim() })
+      if (error) throw error
+      router.push({ pathname: '/(auth)/otp', params: { method: 'email', value: value.trim() } })
     } catch (err) {
       Alert.alert('Lỗi', err instanceof Error ? err.message : 'Đã có lỗi xảy ra')
     } finally {
@@ -55,7 +56,54 @@ export default function SignInScreen() {
     }
   }
 
-  // pill width = (totalWidth - 2*padding) / 2
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true)
+    try {
+      if (Platform.OS === 'android') {
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true })
+      }
+
+      const response = await GoogleSignin.signIn()
+      const idToken = response.data?.idToken
+      if (!idToken) throw new Error('Không lấy được Google ID token')
+
+      const { data: authData, error: authError } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: idToken,
+      })
+      if (authError) throw authError
+
+      const userId = authData.user?.id
+      if (!userId) throw new Error('Không lấy được user ID')
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', userId)
+        .single()
+
+      if (profile) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        router.replace('/(app)/(tabs)/' as any)
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        router.replace('/(auth)/profile-setup' as any)
+      }
+    } catch (err: unknown) {
+      if (
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        err.code === statusCodes.SIGN_IN_CANCELLED
+      ) {
+        return
+      }
+      Alert.alert('Lỗi đăng nhập Google', err instanceof Error ? err.message : 'Đã có lỗi xảy ra')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const PADDING = 5
   const pillWidth = toggleWidth > 0 ? (toggleWidth - PADDING * 2) / 2 : 0
 
@@ -67,19 +115,17 @@ export default function SignInScreen() {
         <View style={styles.headingBlock}>
           <Text style={[styles.title, { color: c.textDark }]}>Chào bạn 👋</Text>
           <Text style={[styles.subtitle, { color: c.textMid }]}>
-            {method === 'phone'
-              ? 'Nhập số điện thoại để nhận mã OTP.'
-              : 'Nhập email để nhận magic link.'}
+            {method === 'email'
+              ? 'Nhập email để nhận magic link.'
+              : 'Đăng nhập bằng tài khoản Google của bạn.'}
           </Text>
         </View>
 
         <View style={{ gap: 16 }}>
-          {/* Segmented toggle */}
           <View
             onLayout={e => setToggleWidth(e.nativeEvent.layout.width)}
             style={[styles.toggle, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}
           >
-            {/* Sliding pill */}
             {pillWidth > 0 && (
               <Animated.View
                 style={[
@@ -99,7 +145,7 @@ export default function SignInScreen() {
                 ]}
               />
             )}
-            {(['phone', 'email'] as Method[]).map(m => (
+            {(['email', 'google'] as Method[]).map(m => (
               <Pressable
                 key={m}
                 onPress={() => switchMethod(m)}
@@ -109,29 +155,13 @@ export default function SignInScreen() {
                   styles.toggleText,
                   { color: method === m ? c.accent : c.textMid },
                 ]}>
-                  {m === 'phone' ? 'Phone' : 'Email'}
+                  {m === 'email' ? 'Email' : 'Google'}
                 </Text>
               </Pressable>
             ))}
           </View>
 
-          {/* Phone input */}
-          {method === 'phone' ? (
-            <View style={[styles.phoneInput, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
-              <Text style={styles.flagEmoji}>🇻🇳</Text>
-              <Text style={[styles.countryCode, { color: c.textDark }]}>+84</Text>
-              <View style={[styles.divider, { backgroundColor: c.textLight }]} />
-              <TextInput
-                value={value}
-                onChangeText={t => setValue(t.replace(/[^\d ]/g, ''))}
-                placeholder="912 345 678"
-                placeholderTextColor={c.textLight}
-                keyboardType="phone-pad"
-                style={[styles.inputText, { color: c.textDark }]}
-                autoFocus
-              />
-            </View>
-          ) : (
+          {method === 'email' ? (
             <View style={[styles.emailInput, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
               <TextInput
                 value={value}
@@ -143,6 +173,13 @@ export default function SignInScreen() {
                 style={[styles.inputText, { color: c.textDark }]}
                 autoFocus
               />
+            </View>
+          ) : (
+            <View style={[styles.googleInfo, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
+              <Text style={[styles.googleIcon]}>🔑</Text>
+              <Text style={[styles.googleHint, { color: c.textMid }]}>
+                Nhấn nút bên dưới để chọn tài khoản Google
+              </Text>
             </View>
           )}
 
@@ -158,8 +195,8 @@ export default function SignInScreen() {
         <View style={{ flex: 1 }} />
 
         <NButton
-          label="Gửi mã →"
-          onPress={handleContinue}
+          label={method === 'email' ? 'Gửi mã →' : 'Tiếp tục với Google →'}
+          onPress={method === 'email' ? handleEmailContinue : handleGoogleSignIn}
           isLoading={isLoading}
           isDisabled={!valid}
           fullWidth
@@ -204,24 +241,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.28,
   },
-  phoneInput: {
-    height: 60,
-    borderRadius: RADIUS.input,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 22,
-    paddingRight: 6,
-    gap: 10,
-  },
   emailInput: {
     height: 60,
     borderRadius: RADIUS.input,
     paddingHorizontal: 22,
     justifyContent: 'center',
   },
-  flagEmoji: { fontSize: 22 },
-  countryCode: { fontSize: 16, fontWeight: '600' },
-  divider: { width: 1, height: 28, opacity: 0.4 },
+  googleInfo: {
+    height: 60,
+    borderRadius: RADIUS.input,
+    paddingHorizontal: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  googleIcon: { fontSize: 22 },
+  googleHint: { fontSize: 14, flex: 1, lineHeight: 20 },
   inputText: {
     flex: 1,
     fontSize: 17,

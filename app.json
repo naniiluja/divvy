@@ -38,8 +38,17 @@
         {
           "backgroundColor": "#E4E9F2"
         }
+      ],
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.divvy.app"
+        }
       ]
     ],
+    "extra": {
+      "googleWebClientId": "637074957901-ga51vqfuva6hduqmtvh594elkrtpsrs4.apps.googleusercontent.com"
+    },
     "experiments": {
       "typedRoutes": true
     }
