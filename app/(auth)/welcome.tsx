@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { View, Text, Pressable, Dimensions, StyleSheet, Animated } from 'react-native'
+import { View, Text, Pressable, Dimensions, StyleSheet, Animated, Easing } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
@@ -37,11 +37,105 @@ function NeuRing({ c, shadow }: { c: ThemeColors; shadow: ReturnType<typeof useN
   )
 }
 
-function FloatChip({ emoji, style, c, shadow }: { emoji: string; style: object; c: ThemeColors; shadow: ReturnType<typeof useNeumorphic>['shadow'] }) {
+interface ChipConfig {
+  emoji: string
+  baseAngle: number
+  radius: number
+  delay: number
+  floatDelay: number
+}
+
+const CHIPS: ChipConfig[] = [
+  { emoji: '🧹', baseAngle:   0, radius: 95, delay: 0,   floatDelay: 0 },
+  { emoji: '🗑️', baseAngle:  90, radius: 95, delay: 120, floatDelay: 0 },
+  { emoji: '🍳', baseAngle: 180, radius: 95, delay: 240, floatDelay: 0 },
+  { emoji: '🧺', baseAngle: 270, radius: 95, delay: 360, floatDelay: 0 },
+]
+
+type ShadowFn = ReturnType<typeof useNeumorphic>['shadow']
+
+// Orbital rotation: dùng 1 Animated.Value chung cho góc, mỗi chip offset khác nhau
+function buildOrbitPath(baseAngleDeg: number, radius: number, steps = 120) {
+  const inputRange: number[] = []
+  const txOut: number[] = []
+  const tyOut: number[] = []
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const rad = (baseAngleDeg * Math.PI / 180) + t * 2 * Math.PI
+    inputRange.push(t)
+    txOut.push(Math.cos(rad) * radius)
+    tyOut.push(Math.sin(rad) * radius)
+  }
+  return { inputRange, txOut, tyOut }
+}
+
+function AnimatedFloatChip({ config, c, shadow }: { config: ChipConfig; c: ThemeColors; shadow: ShadowFn }) {
+  const opacity  = useRef(new Animated.Value(0)).current
+  const scale    = useRef(new Animated.Value(0)).current
+  const progress = useRef(new Animated.Value(0)).current  // 0 → 1 một lần
+  const floatY   = useRef(new Animated.Value(0)).current
+
+  const { inputRange, txOut, tyOut } = buildOrbitPath(config.baseAngle, config.radius)
+
+  const tx = progress.interpolate({ inputRange, outputRange: txOut, extrapolate: 'clamp' })
+  const ty = Animated.add(
+    progress.interpolate({ inputRange, outputRange: tyOut, extrapolate: 'clamp' }),
+    floatY
+  )
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      // Phase 1: Fade in + scale pop
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 1, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+        Animated.spring(scale, { toValue: 1, friction: 5, tension: 80, useNativeDriver: false }),
+      ]).start(() => {
+        // Phase 2: Xoay 1 vòng trong 3s (progress 0 → 1)
+        Animated.timing(progress, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: false,
+        }).start(() => {
+          // Phase 3: Lơ lửng lên xuống mãi — mỗi chip lệch phase
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(floatY, {
+                toValue: -8,
+                duration: 1600 + config.delay * 0.5,
+                easing: Easing.inOut(Easing.sin),
+                useNativeDriver: false,
+              }),
+              Animated.timing(floatY, {
+                toValue: 0,
+                duration: 1600 + config.delay * 0.5,
+                easing: Easing.inOut(Easing.sin),
+                useNativeDriver: false,
+              }),
+            ])
+          ).start()
+        })
+      })
+    }, config.delay)
+    return () => clearTimeout(t)
+  }, [])
+
   return (
-    <View style={[styles.floatChip, { backgroundColor: c.bg, ...shadow('raised', 'sm') }, style]}>
-      <Text style={styles.floatEmoji}>{emoji}</Text>
-    </View>
+    <Animated.View
+      style={[
+        styles.floatChip,
+        { backgroundColor: c.bg, ...shadow('raised', 'sm') },
+        {
+          position: 'absolute',
+          top: 130 - 27,
+          left: 130 - 27,
+          opacity,
+          transform: [{ translateX: tx }, { translateY: ty }, { scale }],
+        },
+      ]}
+    >
+      <Text style={styles.floatEmoji}>{config.emoji}</Text>
+    </Animated.View>
   )
 }
 
@@ -68,17 +162,16 @@ function TaskRow({ emoji, name, by, done, highlight, c, shadow }: {
   )
 }
 
-function ArtHouse({ c, shadow }: { c: ThemeColors; shadow: ReturnType<typeof useNeumorphic>['shadow'] }) {
+function ArtHouse({ c, shadow }: { c: ThemeColors; shadow: ShadowFn }) {
   return (
-    <View style={styles.artStage}>
+    <View style={styles.artStageHouse}>
       <NeuRing c={c} shadow={shadow} />
       <View style={[styles.artCenter, { backgroundColor: c.bg, ...shadow('raised', 'md') }]}>
         <Text style={{ fontSize: 56 }}>🏠</Text>
       </View>
-      <FloatChip emoji="🧹" style={{ position: 'absolute', top: 18, left: 10 }} c={c} shadow={shadow} />
-      <FloatChip emoji="🗑️" style={{ position: 'absolute', top: 30, right: 4 }} c={c} shadow={shadow} />
-      <FloatChip emoji="🍳" style={{ position: 'absolute', bottom: 30, left: 0 }} c={c} shadow={shadow} />
-      <FloatChip emoji="🧺" style={{ position: 'absolute', bottom: 14, right: 14 }} c={c} shadow={shadow} />
+      {CHIPS.map(cfg => (
+        <AnimatedFloatChip key={cfg.emoji} config={cfg} c={c} shadow={shadow} />
+      ))}
     </View>
   )
 }
@@ -287,6 +380,13 @@ const styles = StyleSheet.create({
     height: 260,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  artStageHouse: {
+    width: 260,
+    height: 260,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
   },
   ring: {
     position: 'absolute',

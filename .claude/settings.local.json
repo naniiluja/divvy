@@ -3,7 +3,8 @@
     "allow": [
       "Bash(Get-ChildItem -Recurse .claude/)",
       "Bash(Select-Object FullName)",
-      "Bash(Get-ChildItem -Recurse .trellis/)"
+      "Bash(Get-ChildItem -Recurse .trellis/)",
+      "Bash(python3 ./.trellis/scripts/get_context.py --mode packages)"
     ]
   },
   "outputStyle": "rem-engineer"
