@@ -1,4 +1,5 @@
-import { FlatList, View } from 'react-native'
+import { View } from 'react-native'
+import { FlashList } from '@shopify/flash-list'
 import type { FC } from 'react'
 import { TaskCard } from './TaskCard'
 import { TaskCardSkeleton } from '@/components/ui/Skeleton'
@@ -41,10 +42,11 @@ export const TaskList: FC<TaskListProps> = ({
   }
 
   return (
-    <FlatList
+    <FlashList
       data={tasks}
       keyExtractor={(item) => item.id}
-      contentContainerClassName="gap-3 px-4 pb-8"
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
+      ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
       renderItem={({ item }) => {
         const lastCompletion = completions.find((c) => c.task_id === item.id) ?? null
         return (

@@ -153,3 +153,59 @@ export async function getRecentCompletions(spaceId: string, days = 7): Promise<T
   if (error) return []
   return (data as TaskCompletion[]) ?? []
 }
+
+export async function getTodayCompletions(spaceId: string): Promise<TaskCompletion[]> {
+  const startOfDay = new Date()
+  startOfDay.setHours(0, 0, 0, 0)
+
+  const { data, error } = await supabase
+    .from('task_completions')
+    .select('*')
+    .eq('space_id', spaceId)
+    .gte('completed_at', startOfDay.toISOString())
+    .order('completed_at', { ascending: false })
+
+  if (error) return []
+  return (data as TaskCompletion[]) ?? []
+}
+
+export async function addCompletion(
+  taskId: string,
+  spaceId: string,
+  userId: string,
+): Promise<TaskCompletion> {
+  const { data, error } = await supabase
+    .from('task_completions')
+    .insert({ task_id: taskId, space_id: spaceId, user_id: userId, completed_by: userId, is_skipped: false })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as TaskCompletion
+}
+
+export async function skipTask(
+  taskId: string,
+  spaceId: string,
+  userId: string,
+): Promise<TaskCompletion> {
+  const { data, error } = await supabase
+    .from('task_completions')
+    .insert({ task_id: taskId, space_id: spaceId, user_id: userId, completed_by: userId, is_skipped: true })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as TaskCompletion
+}
+
+export async function getSpaceById(spaceId: string): Promise<Space | null> {
+  const { data, error } = await supabase
+    .from('spaces')
+    .select('*')
+    .eq('id', spaceId)
+    .single()
+
+  if (error) return null
+  return data as Space
+}
