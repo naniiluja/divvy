@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
 import { View, Text, Pressable, TextInput, Alert, StyleSheet, Animated, Platform } from 'react-native'
 import { useRouter } from 'expo-router'
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin'
+import * as WebBrowser from 'expo-web-browser'
+import * as AuthSession from 'expo-auth-session'
 import Constants from 'expo-constants'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
@@ -10,11 +11,27 @@ import { NButton } from '@/components/ui/NButton'
 import { NHeader } from '@/components/ui/NHeader'
 import { supabase } from '@/lib/supabase'
 
+WebBrowser.maybeCompleteAuthSession()
+
 type Method = 'email' | 'google'
 
+const IS_EXPO_GO = Constants.appOwnership === 'expo'
 const WEB_CLIENT_ID = (Constants.expoConfig?.extra?.googleWebClientId as string) ?? ''
 
-GoogleSignin.configure({ webClientId: WEB_CLIENT_ID })
+let GoogleSignin: typeof import('@react-native-google-signin/google-signin').GoogleSignin | null = null
+let statusCodes: typeof import('@react-native-google-signin/google-signin').statusCodes | null = null
+
+if (!IS_EXPO_GO) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('@react-native-google-signin/google-signin')
+    GoogleSignin = mod.GoogleSignin
+    statusCodes = mod.statusCodes
+    GoogleSignin?.configure({ webClientId: WEB_CLIENT_ID })
+  } catch {
+    // native module not available
+  }
+}
 
 export default function SignInScreen() {
   const router = useRouter()
@@ -26,6 +43,8 @@ export default function SignInScreen() {
   const { shadow } = useNeumorphic()
   const { isDark } = useTheme()
   const c = isDark ? DARK : LIGHT
+
+  const redirectUrl = AuthSession.makeRedirectUri({ scheme: 'divvy' })
 
   const valid = method === 'email'
     ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
@@ -56,13 +75,64 @@ export default function SignInScreen() {
     }
   }
 
-  const handleGoogleSignIn = async () => {
+  const navigateAfterGoogle = async (userId: string) => {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single()
+    if (profile) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      router.replace('/(app)/(tabs)/' as any)
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      router.replace('/(auth)/profile-setup' as any)
+    }
+  }
+
+  const handleGoogleExpoGo = async () => {
+    setIsLoading(true)
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: redirectUrl, skipBrowserRedirect: true },
+      })
+      if (error) throw error
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url!, redirectUrl)
+
+      if (result.type !== 'success') return
+
+      const url = result.url
+      const params = new URLSearchParams(url.split('#')[1] ?? url.split('?')[1] ?? '')
+      const accessToken = params.get('access_token')
+      const refreshToken = params.get('refresh_token')
+
+      if (!accessToken || !refreshToken) throw new Error('Không lấy được token từ Google')
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      })
+      if (sessionError) throw sessionError
+
+      const userId = sessionData.user?.id
+      if (!userId) throw new Error('Không lấy được user ID')
+      await navigateAfterGoogle(userId)
+    } catch (err) {
+      Alert.alert('Lỗi đăng nhập Google', err instanceof Error ? err.message : 'Đã có lỗi xảy ra')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogleNative = async () => {
+    if (!GoogleSignin || !statusCodes) return
     setIsLoading(true)
     try {
       if (Platform.OS === 'android') {
         await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true })
       }
-
       const response = await GoogleSignin.signIn()
       const idToken = response.data?.idToken
       if (!idToken) throw new Error('Không lấy được Google ID token')
@@ -75,34 +145,16 @@ export default function SignInScreen() {
 
       const userId = authData.user?.id
       if (!userId) throw new Error('Không lấy được user ID')
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', userId)
-        .single()
-
-      if (profile) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        router.replace('/(app)/(tabs)/' as any)
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        router.replace('/(auth)/profile-setup' as any)
-      }
+      await navigateAfterGoogle(userId)
     } catch (err: unknown) {
-      if (
-        err &&
-        typeof err === 'object' &&
-        'code' in err &&
-        err.code === statusCodes.SIGN_IN_CANCELLED
-      ) {
-        return
-      }
+      if (err && typeof err === 'object' && 'code' in err && err.code === statusCodes?.SIGN_IN_CANCELLED) return
       Alert.alert('Lỗi đăng nhập Google', err instanceof Error ? err.message : 'Đã có lỗi xảy ra')
     } finally {
       setIsLoading(false)
     }
   }
+
+  const handleGoogleSignIn = IS_EXPO_GO ? handleGoogleExpoGo : handleGoogleNative
 
   const PADDING = 5
   const pillWidth = toggleWidth > 0 ? (toggleWidth - PADDING * 2) / 2 : 0
@@ -176,9 +228,11 @@ export default function SignInScreen() {
             </View>
           ) : (
             <View style={[styles.googleInfo, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
-              <Text style={[styles.googleIcon]}>🔑</Text>
+              <Text style={styles.googleIcon}>🔑</Text>
               <Text style={[styles.googleHint, { color: c.textMid }]}>
-                Nhấn nút bên dưới để chọn tài khoản Google
+                {IS_EXPO_GO
+                  ? 'Sẽ mở trình duyệt để đăng nhập Google'
+                  : 'Nhấn nút bên dưới để chọn tài khoản Google'}
               </Text>
             </View>
           )}
