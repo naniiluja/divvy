@@ -1,4 +1,3 @@
-import { View } from 'react-native'
 import { Tabs } from 'expo-router'
 import { colors } from '@/constants/theme'
 import Svg, { Rect, Path, Circle } from 'react-native-svg'

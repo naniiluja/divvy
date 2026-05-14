@@ -118,6 +118,7 @@ function AnimatedFloatChip({ config, c, shadow }: { config: ChipConfig; c: Theme
       })
     }, config.delay)
     return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

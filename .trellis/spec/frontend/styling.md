@@ -314,6 +314,107 @@ Vì `boxShadow` bị drop trong Pressable style function, `NButton` dùng patter
 </View>
 ```
 
+### Tab Bar — Float Pill Pattern (Design Chuẩn)
+
+Design dùng **floating pill tab bar** — không phải native tab bar mặc định.
+
+```tsx
+// Tab bar style từ design
+const TAB_BAR_STYLE = {
+  position: 'absolute',
+  left: 14, right: 14, bottom: 20,
+  borderRadius: 28,
+  backgroundColor: colors.light.bg,
+  borderTopWidth: 0, elevation: 0, shadowOpacity: 0,
+  height: 68,
+  paddingBottom: 6, paddingTop: 6, paddingHorizontal: 6,
+}
+
+// Active tab: inset shadow (lõm vào)
+// Inactive tab: transparent, không có shadow
+tabBarItemStyle: { borderRadius: 22 }
+```
+
+Tab bar icons phải dùng SVG (`react-native-svg`), không dùng emoji. Exact 4 tabs:
+1. **Hôm nay** — calendar icon
+2. **Lịch sử** — clock circle icon
+3. **Người** — users icon
+4. **Bạn** — person icon
+
+### ProgressRing — SVG Circle Pattern
+
+Home screen dùng SVG circle với `strokeDasharray` để hiển thị % hoàn thành:
+
+```tsx
+import Svg, { Circle } from 'react-native-svg'
+
+function ProgressRing({ pct }: { pct: number }) {
+  const size = 50, strokeW = 3
+  const r = (size - strokeW * 2) / 2
+  const C = 2 * Math.PI * r
+  const dash = (pct / 100) * C
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        <Circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#6C7CFF" strokeWidth={strokeW}
+          strokeLinecap="round" strokeDasharray={`${dash} ${C}`}
+          rotation="-90" origin={`${size/2}, ${size/2}`} />
+      </Svg>
+      <Text style={{ fontSize: 12, fontWeight: '700' }}>{pct}<Text style={{ fontSize: 8 }}>%</Text></Text>
+    </View>
+  )
+}
+```
+
+Package: `react-native-svg` — install với `npm install react-native-svg --legacy-peer-deps` (Windows peer deps conflict).
+
+### Home Screen Card Structure (Design Chuẩn)
+
+Home screen phải có greeting card + ProgressRing + section labels:
+
+```tsx
+// Greeting card
+<View style={[{ backgroundColor: c.bg, borderRadius: 28, padding: 20 }, shadow('raised', 'md')]}>
+  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+    <View>
+      <Text style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.88, color: c.textMid }}>
+        Hôm nay · {dayLabel}
+      </Text>
+      <Text style={{ fontSize: 24, fontWeight: '700', color: c.textDark }}>Chào {name} 👋</Text>
+    </View>
+    <ProgressRing pct={pct} />
+  </View>
+  {/* stats row: N task cần làm · N/N đã xong */}
+</View>
+
+// Section labels
+<Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', color: c.textMid }}>
+  CẦN LÀM · {todoCount}
+</Text>
+```
+
+### TaskCard — Exact Design Dimensions
+
+```tsx
+// Outer card: raised or inset (done state)
+borderRadius: 20
+
+// Icon box (inset)
+width: 42, height: 42, borderRadius: 13
+
+// Tick button
+width: 32, height: 32, borderRadius: 16
+// pending: inset shadow
+// done: accent background + accent shadow + ✓ white
+
+// Done state: opacity 0.7 trên INNER View, KHÔNG phải outer card
+<Pressable style={[shadow('inset', 'sm'), { borderRadius: 20 }]}>
+  <View style={{ opacity: isDone ? 0.7 : 1, flexDirection: 'row', ... }}>
+    {/* content */}
+  </View>
+</Pressable>
+```
+
 ### Slide Transition — Không Dùng ScrollView Paging
 
 `ScrollView` với `pagingEnabled` tạo cảm giác "vuốt trang" — không phải transition mượt.

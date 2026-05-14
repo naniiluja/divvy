@@ -165,6 +165,101 @@ npx supabase functions deploy generate-tasks
 # Deploy all functions
 npx supabase functions deploy
 
-# Set secrets
-npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+# Set secrets — dùng Vault thay vì CLI (xem bên dưới)
 ```
+
+## Secrets Management — Vault Pattern (Ưu Tiên Hơn CLI)
+
+Supabase CLI `secrets set` yêu cầu authenticated session. Thay vào đó, dùng **Vault** qua MCP SQL — không cần CLI login.
+
+### Lưu secret vào Vault
+
+```sql
+-- Dùng MCP execute_sql
+SELECT vault.create_secret('sk-...', 'KEY_NAME', 'Description');
+```
+
+### Đọc secret trong Edge Function
+
+```ts
+let cachedApiKey: string | null = null
+
+async function getSecret(name: string): Promise<string> {
+  if (cachedApiKey) return cachedApiKey
+
+  // Fallback: try Deno.env first (nếu set qua CLI)
+  const envKey = Deno.env.get(name)
+  if (envKey) { cachedApiKey = envKey; return envKey }
+
+  // Read từ vault bằng service role
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  )
+  const { data, error } = await supabase
+    .schema('vault')
+    .from('decrypted_secrets')
+    .select('decrypted_secret')
+    .eq('name', name)
+    .single()
+
+  if (error || !data?.decrypted_secret) throw new Error(`${name} not found in vault`)
+  cachedApiKey = data.decrypted_secret
+  return cachedApiKey
+}
+```
+
+**Tại sao cache**: Vault query có latency ~50ms — module-level cache giảm cold start.
+
+### Rotate secret
+
+```sql
+UPDATE vault.secrets SET secret = 'new-key' WHERE name = 'KEY_NAME';
+```
+
+## AI Task Generation — MiniMax M2.7 Endpoint
+
+`generate-tasks` dùng **MiniMax M2.7** qua Anthropic-compatible endpoint (không phải Anthropic SDK).
+
+### Endpoint & Auth
+
+```
+URL:     https://api.minimax.io/anthropic/v1/messages
+Header:  x-api-key: <MINIMAX_API_KEY>         ← KHÔNG phải "Authorization: Bearer"
+Header:  anthropic-version: 2023-06-01
+Model:   MiniMax-M2.7
+```
+
+### Request format
+
+```ts
+const body = {
+  model: 'MiniMax-M2.7',
+  max_tokens: 1024,
+  messages: [{ role: 'user', content: prompt }],
+}
+
+const response = await fetch('https://api.minimax.io/anthropic/v1/messages', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,               // ← key này, không phải Authorization
+    'anthropic-version': '2023-06-01',
+  },
+  body: JSON.stringify(body),
+})
+```
+
+### Parse response
+
+Model trả về JSON array inline trong text block — cần extract:
+
+```ts
+const textBlock = data.content?.find((b: { type: string }) => b.type === 'text')
+const raw = textBlock.text.trim()
+const jsonStart = raw.indexOf('[')
+const jsonEnd = raw.lastIndexOf(']')
+tasks = JSON.parse(raw.slice(jsonStart, jsonEnd + 1))
+```
+
+**Gotcha**: Model đôi khi wrap JSON trong markdown code block — `indexOf('[')` bỏ qua prefix đó.

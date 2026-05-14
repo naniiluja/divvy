@@ -234,6 +234,73 @@ Height 60, borderRadius 20, inset shadow simulate.
 
 Active dot: accent color, width 22. Inactive: textLight, width 8, opacity 0.4.
 
+## Realtime Subscription Pattern
+
+Tất cả screens dùng Supabase Realtime phải follow pattern này:
+
+```tsx
+const channelRef = useRef<RealtimeChannel | null>(null)
+
+useEffect(() => {
+  if (!spaceId) return
+
+  // Unsubscribe existing trước khi tạo channel mới
+  channelRef.current?.unsubscribe()
+  channelRef.current = supabase
+    .channel(`screen-${spaceId}-completions`)
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public',
+      table: 'task_completions',
+      filter: `space_id=eq.${spaceId}`,
+    }, (payload) => {
+      const incoming = payload.new as TaskCompletion
+      // Replace completion cho cùng task_id (không append)
+      setCompletions((prev) => {
+        const without = prev.filter((c) => c.task_id !== incoming.task_id)
+        return [incoming, ...without]
+      })
+    })
+    .subscribe()
+
+  return () => { channelRef.current?.unsubscribe() }
+}, [spaceId])
+```
+
+**Gotcha**: Nếu không unsubscribe existing channel trước khi re-subscribe, sẽ có multiple listeners → duplicate completions.
+
+## MemberWithProfile Pattern
+
+`getSpaceMembers()` trả về `SpaceMember[]` với nested `profiles` join. Phải type-cast để access:
+
+```ts
+type MemberWithProfile = SpaceMember & {
+  profiles?: { display_name?: string; avatar_emoji?: string }
+}
+
+// Usage
+const displayName = (m as MemberWithProfile).profiles?.display_name ?? m.user_id.slice(0, 6)
+const emoji = (m as MemberWithProfile).profiles?.avatar_emoji ?? '👤'
+```
+
+## Tab Icon Pattern (SVG)
+
+Tab icons dùng `react-native-svg`, không phải emoji hay text:
+
+```tsx
+import Svg, { Circle, Path, Rect } from 'react-native-svg'
+
+function IconToday({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24">
+      <Rect fill="none" stroke={color} strokeWidth={1.8} x={3.5} y={5} width={17} height={15} rx={3} />
+      <Path stroke={color} strokeWidth={1.8} strokeLinecap="round" d="M8 3v4M16 3v4M3.5 10h17" />
+    </Svg>
+  )
+}
+```
+
+Tham khảo exact SVG paths trong `screens-app.jsx` của design source (TabBar component).
+
 ## Screen Layout Pattern (Auth)
 
 Tất cả auth screens theo cấu trúc này:

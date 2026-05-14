@@ -167,3 +167,27 @@ Trong Edge Function: check trước khi gọi Claude API.
 
 MVP: `Access-Control-Allow-Origin: *` acceptable.
 Production (v1.0 release): tighten xuống Expo app bundle domain hoặc restrict bằng `req.headers.get('origin')` check.
+
+---
+
+### 11. Edge Function Secrets — Vault (Ưu Tiên)
+
+Secrets cho Edge Functions nên lưu trong **Supabase Vault** (không phải plaintext env):
+
+```sql
+-- Lưu secret (dùng MCP SQL, không cần CLI login)
+SELECT vault.create_secret('sk-...value...', 'SECRET_NAME', 'description');
+
+-- Rotate secret
+UPDATE vault.secrets SET secret = 'new-value' WHERE name = 'SECRET_NAME';
+```
+
+Edge Function đọc qua `vault.decrypted_secrets` view với service role client.
+
+**Tại sao Vault tốt hơn CLI secrets**:
+- Vault quản lý được qua MCP SQL — không cần `supabase login`
+- Encrypted at rest bằng pgsodium
+- Rotate không cần redeploy function
+- Audit trail qua Postgres
+
+Xem pattern chi tiết trong `edge-functions.md` → "Secrets Management — Vault Pattern".

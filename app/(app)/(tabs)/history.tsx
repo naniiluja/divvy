@@ -5,8 +5,8 @@ import { useStore } from '@/stores'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
 import { LIGHT, DARK, RADIUS } from '@/constants/theme'
-import { getRecentCompletions, getSpaceById, getTasksForSpace } from '@/lib/api'
-import type { Space, Task, TaskCompletion } from '@/types'
+import { getRecentCompletions, getTasksForSpace } from '@/lib/api'
+import type { Task, TaskCompletion } from '@/types'
 
 const DAY_LABEL = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
 
@@ -26,17 +26,15 @@ export default function HistoryScreen() {
   const { isDark } = useTheme()
   const c = isDark ? DARK : LIGHT
 
-  const [space, setSpace] = useState<Space | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [completions, setCompletions] = useState<TaskCompletion[]>([])
 
   useEffect(() => {
     if (!activeSpaceId) return
     Promise.all([
-      getSpaceById(activeSpaceId),
       getTasksForSpace(activeSpaceId),
       getRecentCompletions(activeSpaceId, 7),
-    ]).then(([s, t, c]) => { setSpace(s); setTasks(t); setCompletions(c) })
+    ]).then(([t, c]) => { setTasks(t); setCompletions(c) })
   }, [activeSpaceId])
 
   const grouped = completions.reduce<Record<string, TaskCompletion[]>>((acc, c) => {

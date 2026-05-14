@@ -1,10 +1,9 @@
-import { useRef } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import type { FC } from 'react'
 import * as Haptics from 'expo-haptics'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { LIGHT, DARK } from '@/constants/theme'
 import type { Task, TaskCompletion } from '@/types'
 
 const FREQ_LABEL: Record<string, string> = {
@@ -42,64 +41,67 @@ export const TaskCard: FC<TaskCardProps> = ({ task, lastCompletion, onTick, onSk
         styles.card,
         { backgroundColor: c.bg },
         isDone ? shadow('inset', 'sm') : shadow('raised', 'sm'),
-        { opacity: isDone ? 0.7 : 1 },
       ]}
     >
-      <View style={[styles.iconBox, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
-        <Text style={styles.iconText}>{task.icon}</Text>
-      </View>
-
-      <View style={styles.info}>
-        <Text
-          style={[
-            styles.name,
-            { color: c.textDark },
-            isDone && styles.nameDone,
-          ]}
-          numberOfLines={1}
-        >
-          {task.name}
-        </Text>
-        <View style={styles.meta}>
-          {isDone && lastCompletion ? (
-            <Text style={[styles.metaText, { color: c.textMid }]}>
-              Xong · {new Date(lastCompletion.completed_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-            </Text>
-          ) : isSkipped ? (
-            <Text style={[styles.metaText, { color: c.textMid }]}>Bỏ qua</Text>
-          ) : (
-            <Text style={[styles.metaText, { color: c.textMid }]}>
-              {FREQ_LABEL[task.frequency] ?? task.frequency}
-              {task.assignee_id ? '' : ' · Ai cũng được'}
-            </Text>
-          )}
+      <View style={[styles.cardInner, { opacity: isDone ? 0.7 : 1 }]}>
+        <View style={[styles.iconBox, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
+          <Text style={styles.iconText}>{task.icon}</Text>
         </View>
-      </View>
 
-      <Pressable
-        onPress={handleTick}
-        style={[
-          styles.tickBtn,
-          { backgroundColor: isDone ? c.accent : c.bg },
-          isDone ? shadow('accent', 'sm') : shadow('inset', 'sm'),
-        ]}
-      >
-        {isDone && (
-          <Text style={styles.checkMark}>✓</Text>
-        )}
-        {isSkipped && !isDone && (
-          <Text style={[styles.checkMark, { color: c.textLight }]}>–</Text>
-        )}
-      </Pressable>
+        <View style={styles.info}>
+          <Text
+            style={[
+              styles.name,
+              { color: c.textDark },
+              isDone && styles.nameDone,
+            ]}
+            numberOfLines={1}
+          >
+            {task.name}
+          </Text>
+          <View style={styles.meta}>
+            {isDone && lastCompletion ? (
+              <Text style={[styles.metaText, { color: c.textMid }]}>
+                Xong · {new Date(lastCompletion.completed_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            ) : isSkipped ? (
+              <Text style={[styles.metaText, { color: c.textMid }]}>Bỏ qua</Text>
+            ) : (
+              <Text style={[styles.metaText, { color: c.textMid }]}>
+                {FREQ_LABEL[task.frequency] ?? task.frequency}
+                {task.assignee_id ? '' : ' · Ai cũng được'}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        <Pressable
+          onPress={handleTick}
+          style={[
+            styles.tickBtn,
+            { backgroundColor: isDone ? c.accent : c.bg },
+            isDone ? shadow('accent', 'sm') : shadow('inset', 'sm'),
+          ]}
+        >
+          {isDone && (
+            <Text style={styles.checkMark}>✓</Text>
+          )}
+          {isSkipped && !isDone && (
+            <Text style={[styles.checkMark, { color: c.textLight }]}>–</Text>
+          )}
+        </Pressable>
+      </View>
     </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
   card: {
+    borderRadius: 20,
+  },
+  cardInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
     padding: 12,
     paddingHorizontal: 14,
     gap: 12,

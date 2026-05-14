@@ -53,9 +53,11 @@ export default function OtpScreen() {
 
   const handleResend = async () => {
     try {
-      method === 'phone'
-        ? await supabase.auth.signInWithOtp({ phone: value })
-        : await supabase.auth.signInWithOtp({ email: value })
+      if (method === 'phone') {
+        await supabase.auth.signInWithOtp({ phone: value })
+      } else {
+        await supabase.auth.signInWithOtp({ email: value })
+      }
       Alert.alert('Đã gửi lại', 'Kiểm tra tin nhắn của bạn.')
     } catch {
       Alert.alert('Lỗi', 'Không thể gửi lại.')

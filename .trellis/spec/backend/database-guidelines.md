@@ -149,3 +149,76 @@ alter publication supabase_realtime add table public.task_completions;
 ```
 
 Do not enable Realtime on `tasks` or `spaces` in MVP — too much noise.
+
+## Actual DB Schema Gotchas (Production)
+
+### task_completions — Dual user columns
+
+Schema thực tế trên production có **cả hai** `user_id` VÀ `completed_by`:
+
+```sql
+-- Actual production schema (khác với spec trên)
+create table public.task_completions (
+  id           uuid primary key default gen_random_uuid(),
+  task_id      uuid references public.tasks(id) on delete cascade,
+  space_id     uuid references public.spaces(id) on delete cascade,
+  user_id      uuid references auth.users(id),       -- ← cột thực tế
+  completed_by uuid references auth.users(id),       -- ← cột thực tế
+  completed_at timestamptz default now(),
+  is_skipped   boolean default false
+);
+```
+
+Khi INSERT phải set cả hai:
+
+```ts
+await supabase.from('task_completions').insert({
+  task_id, space_id,
+  user_id: userId,       // ← bắt buộc
+  completed_by: userId,  // ← bắt buộc
+  is_skipped: false,
+})
+```
+
+TypeScript type cũng phải có cả hai:
+
+```ts
+export interface TaskCompletion {
+  id: string
+  task_id: string
+  space_id: string
+  user_id: string      // ← thêm vào
+  completed_by: string
+  completed_at: string
+  is_skipped: boolean
+}
+```
+
+### spaces — owner_id (không phải created_by)
+
+Spaces table dùng `owner_id` (không phải `created_by`) làm FK chính:
+
+```ts
+// Đúng
+await supabase.from('spaces').insert({ name, emoji, owner_id: userId, created_by: userId })
+
+// Sai (thiếu owner_id → FK violation)
+await supabase.from('spaces').insert({ name, emoji, created_by: userId })
+```
+
+### getSpacesForUser — Không dùng !inner join
+
+`.eq('space_members.user_id', userId)` trên join unreliable. Dùng 2-step query:
+
+```ts
+// Đúng
+const { data: memberRows } = await supabase
+  .from('space_members').select('space_id').eq('user_id', userId)
+const spaceIds = memberRows.map(r => r.space_id)
+const { data } = await supabase.from('spaces').select('*').in('id', spaceIds)
+
+// Sai — !inner join filter unreliable
+const { data } = await supabase
+  .from('spaces').select('*, space_members!inner(user_id)')
+  .eq('space_members.user_id', userId)
+```

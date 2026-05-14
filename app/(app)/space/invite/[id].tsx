@@ -13,6 +13,7 @@ import { getOrCreateInviteLink } from '@/lib/api'
 import type { InviteLink } from '@/types'
 
 const APP_SCHEME = 'divvy'
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default function InviteScreen() {
   const { id: spaceId } = useLocalSearchParams<{ id: string }>()
@@ -25,8 +26,6 @@ export default function InviteScreen() {
   const { shadow } = useNeumorphic()
   const { isDark } = useTheme()
   const c = isDark ? DARK : LIGHT
-
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
   useEffect(() => {
     if (!spaceId || !user?.id || !UUID_RE.test(spaceId)) {
