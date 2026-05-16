@@ -26,6 +26,7 @@ export default function AppLayout() {
       <Stack.Screen name="space/[id]" />
       <Stack.Screen name="space/invite/[id]" />
       <Stack.Screen name="task/new" />
+      <Stack.Screen name="task/[id]" />
       <Stack.Screen name="task/ai-generate" />
       <Stack.Screen name="space/join" />
       <Stack.Screen name="notifications" />

@@ -8,34 +8,10 @@ import { useStore } from '@/stores'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
 import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { NToggle } from '@/components/ui/NToggle'
 import { getSpacesForUser, getRecentCompletions } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
-import type { Space } from '@/types'
-
-function NToggle({ value, onToggle }: { value: boolean; onToggle: () => void }) {
-  const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
-
-  return (
-    <Pressable
-      onPress={onToggle}
-      style={[styles.toggleTrack, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}
-      accessibilityRole="switch"
-      accessibilityState={{ checked: value }}
-    >
-      <View
-        style={[
-          styles.toggleThumb,
-          { left: value ? 22 : 3 },
-          value
-            ? { backgroundColor: c.accent, ...shadow('accent', 'sm') }
-            : { backgroundColor: c.bg, ...shadow('raised', 'sm') },
-        ]}
-      />
-    </Pressable>
-  )
-}
+import type { Space, TaskCompletion } from '@/types'
 
 function SettingsRow({
   icon,
@@ -139,6 +115,7 @@ export default function ProfileScreen() {
 
   const [spaces, setSpaces] = useState<Space[]>([])
   const [completionsCount, setCompletionsCount] = useState(0)
+  const [streak, setStreak] = useState(0)
   const [statsLoading, setStatsLoading] = useState(false)
 
   const [notifTask, setNotifTask] = useState(true)
@@ -153,7 +130,22 @@ export default function ProfileScreen() {
     ]
     if (activeSpaceId) {
       promises.push(
-        getRecentCompletions(activeSpaceId, 30).then((data) => setCompletionsCount(data.length)),
+        getRecentCompletions(activeSpaceId, 30).then((data: TaskCompletion[]) => {
+          const myDone = data.filter((c) => c.completed_by === user.id && !c.is_skipped)
+          setCompletionsCount(myDone.length)
+
+          const activeKeys = new Set(
+            myDone.map((c) => new Date(c.completed_at).toDateString()),
+          )
+          let s = 0
+          const cursor = new Date()
+          cursor.setHours(0, 0, 0, 0)
+          while (activeKeys.has(cursor.toDateString())) {
+            s += 1
+            cursor.setDate(cursor.getDate() - 1)
+          }
+          setStreak(s)
+        }),
       )
     }
     Promise.all(promises).finally(() => setStatsLoading(false))
@@ -228,8 +220,8 @@ export default function ProfileScreen() {
               />
               <StatTile
                 label="STREAK"
-                value="12d 🔥"
-                sub="không bỏ"
+                value={`${streak}d 🔥`}
+                sub="liên tiếp"
                 accent
               />
               <StatTile
@@ -441,20 +433,6 @@ const styles = StyleSheet.create({
   settingsLabel: { fontSize: 14, fontWeight: '600' },
   settingsSub: { fontSize: 11, marginTop: 1 },
   chevron: { fontSize: 22, fontWeight: '300', marginRight: 2 },
-
-  toggleTrack: {
-    width: 48,
-    height: 28,
-    borderRadius: 999,
-    justifyContent: 'center',
-  },
-  toggleThumb: {
-    position: 'absolute',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    top: 3,
-  },
 
   signOutBtn: {
     borderRadius: RADIUS.pill,

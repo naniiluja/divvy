@@ -128,6 +128,32 @@ export async function getInviteLinkByToken(token: string): Promise<InviteLink | 
   return data as InviteLink
 }
 
+export async function getTaskById(taskId: string): Promise<Task | null> {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('id', taskId)
+    .single()
+
+  if (error) return null
+  return data as Task
+}
+
+export async function getCompletionsForTask(taskId: string, days = 7): Promise<TaskCompletion[]> {
+  const since = new Date()
+  since.setDate(since.getDate() - days)
+
+  const { data, error } = await supabase
+    .from('task_completions')
+    .select('*')
+    .eq('task_id', taskId)
+    .gte('completed_at', since.toISOString())
+    .order('completed_at', { ascending: false })
+
+  if (error) return []
+  return (data as TaskCompletion[]) ?? []
+}
+
 export async function getTasksForSpace(spaceId: string): Promise<Task[]> {
   const { data, error } = await supabase
     .from('tasks')

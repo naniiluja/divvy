@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, Alert, StyleSheet, ScrollView } from 'react-native'
+import { IconShuffle } from '@/components/ui/NIcons'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
@@ -15,10 +16,11 @@ import type { SpaceMember } from '@/types'
 
 type Frequency = 'daily' | 'weekly' | '3x_week'
 
-const FREQ_OPTIONS: { id: Frequency; label: string; sub: string }[] = [
+const FREQ_OPTIONS: { id: Frequency | 'custom'; label: string; sub: string; disabled?: boolean }[] = [
   { id: 'daily',    label: 'Hằng ngày',   sub: 'Reset mỗi 24h' },
   { id: 'weekly',   label: 'Hằng tuần',   sub: 'Reset thứ 2 hằng tuần' },
   { id: '3x_week',  label: '3 lần/tuần',  sub: 'Thứ 2 · Thứ 4 · Thứ 6' },
+  { id: 'custom',   label: 'Tuỳ chỉnh',   sub: 'Coming soon', disabled: true },
 ]
 
 const TASK_EMOJIS = ['🐶','🦮','🐱','🐟','🌿','🍳','🧹','🧺','🗑️','🛒','💧','💊','📚','🚿','🍽️','☕','🌱','🧼']
@@ -107,16 +109,23 @@ export default function NewTaskScreen() {
         <Text style={[styles.sectionLabel, { color: c.textMid }]}>TẦN SUẤT</Text>
         <View style={styles.freqList}>
           {FREQ_OPTIONS.map((f) => {
-            const active = frequency === f.id
+            const active = !f.disabled && frequency === f.id
+            const handlePress = () => {
+              if (f.disabled) {
+                Alert.alert('Coming soon', 'Tần suất tuỳ chỉnh sẽ được thêm ở v1.1.')
+                return
+              }
+              setFrequency(f.id as Frequency)
+            }
             return (
               <Pressable
                 key={f.id}
-                onPress={() => setFrequency(f.id)}
+                onPress={handlePress}
                 accessibilityLabel={`Tần suất ${f.label}`}
                 accessibilityRole="button"
                 style={[
                   styles.freqRow,
-                  { backgroundColor: c.bg },
+                  { backgroundColor: c.bg, opacity: f.disabled ? 0.55 : 1 },
                   active ? shadow('inset', 'sm') : shadow('raised', 'sm'),
                 ]}
               >
@@ -138,6 +147,20 @@ export default function NewTaskScreen() {
           <>
             <Text style={[styles.sectionLabel, { color: c.textMid }]}>GIAO CHO</Text>
             <View style={styles.assigneeRow}>
+              {/* "Luân phiên" is a UI-only stub for v1 — stores as assignee_id: null. */}
+              <Pressable
+                onPress={() => setAssigneeId(null)}
+                style={[
+                  styles.assigneePill,
+                  { backgroundColor: c.bg },
+                  shadow('raised', 'sm'),
+                ]}
+              >
+                <View style={styles.assigneeInner}>
+                  <IconShuffle size={14} color={c.textDark} />
+                  <Text style={[styles.assigneeText, { color: c.textDark }]}>Luân phiên</Text>
+                </View>
+              </Pressable>
               <Pressable
                 onPress={() => setAssigneeId(null)}
                 style={[
@@ -209,6 +232,7 @@ const styles = StyleSheet.create({
   freqSub: { fontSize: 11, marginTop: 1 },
   assigneeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   assigneePill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.pill },
+  assigneeInner: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   assigneeText: { fontSize: 13, fontWeight: '600' },
   ctaRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   aiBtn: { width: 56, height: 56, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
