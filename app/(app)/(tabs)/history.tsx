@@ -46,6 +46,20 @@ export default function HistoryScreen() {
 
   const days = Object.entries(grouped).sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
 
+  // Consecutive streak: walk back day-by-day from today until a day has zero non-skipped completions
+  const activeKeySet = new Set(
+    completions
+      .filter((c) => !c.is_skipped)
+      .map((c) => new Date(c.completed_at).toDateString()),
+  )
+  let streak = 0
+  const cursor = new Date()
+  cursor.setHours(0, 0, 0, 0)
+  while (activeKeySet.has(cursor.toDateString())) {
+    streak += 1
+    cursor.setDate(cursor.getDate() - 1)
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -59,8 +73,8 @@ export default function HistoryScreen() {
           <View style={{ flex: 1 }}>
             <Text style={[styles.streakSub, { color: c.textMid }]}>Cả Space đang giữ</Text>
             <Text style={[styles.streakCount, { color: c.textDark }]}>
-              {days.length} ngày hoạt động{' '}
-              <Text style={[styles.streakLabel, { color: c.textMid }]}>· không bỏ task nào</Text>
+              {streak} ngày streak{' '}
+              <Text style={[styles.streakLabel, { color: c.textMid }]}>· liên tiếp</Text>
             </Text>
           </View>
         </View>

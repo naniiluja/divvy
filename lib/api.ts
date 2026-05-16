@@ -85,13 +85,37 @@ export async function joinSpace(spaceId: string, userId: string): Promise<void> 
 }
 
 export async function getSpaceMembers(spaceId: string): Promise<SpaceMember[]> {
-  const { data, error } = await supabase
+  const { data: memberRows, error: memberErr } = await supabase
     .from('space_members')
-    .select('*, profiles(display_name, avatar_emoji)')
+    .select('*')
     .eq('space_id', spaceId)
 
-  if (error) return []
-  return (data as SpaceMember[]) ?? []
+  if (memberErr || !memberRows?.length) {
+    if (memberErr) console.error('[getSpaceMembers] members error:', memberErr.message)
+    return []
+  }
+
+  const userIds = memberRows.map((m) => m.user_id)
+  const { data: profileRows, error: profErr } = await supabase
+    .from('profiles')
+    .select('id, display_name, avatar_emoji')
+    .in('id', userIds)
+
+  if (profErr) {
+    console.error('[getSpaceMembers] profiles error:', profErr.message)
+    return memberRows as SpaceMember[]
+  }
+
+  const profileMap = new Map(profileRows?.map((p) => [p.id, p]) ?? [])
+  return memberRows.map((m) => ({
+    ...m,
+    profiles: profileMap.get(m.user_id)
+      ? {
+          display_name: profileMap.get(m.user_id)!.display_name,
+          avatar_emoji: profileMap.get(m.user_id)!.avatar_emoji,
+        }
+      : undefined,
+  })) as SpaceMember[]
 }
 
 export async function getOrCreateInviteLink(spaceId: string, createdBy: string): Promise<InviteLink> {
@@ -131,6 +155,32 @@ export async function getInviteLinkByToken(token: string): Promise<InviteLink | 
 
   if (error) return null
   return data as InviteLink
+}
+
+export async function getTaskById(taskId: string): Promise<Task | null> {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('id', taskId)
+    .single()
+
+  if (error) return null
+  return data as Task
+}
+
+export async function getCompletionsForTask(taskId: string, days = 7): Promise<TaskCompletion[]> {
+  const since = new Date()
+  since.setDate(since.getDate() - days)
+
+  const { data, error } = await supabase
+    .from('task_completions')
+    .select('*')
+    .eq('task_id', taskId)
+    .gte('completed_at', since.toISOString())
+    .order('completed_at', { ascending: false })
+
+  if (error) return []
+  return (data as TaskCompletion[]) ?? []
 }
 
 export async function getTasksForSpace(spaceId: string): Promise<Task[]> {
@@ -226,11 +276,35 @@ export async function callGenerateTasks(
   input: string,
   members: { id: string; display_name: string }[],
 ): Promise<GeneratedTask[]> {
+  if (!members.length) {
+    throw new Error('Chưa có thành viên trong Space — không thể chia task.')
+  }
   const { data, error } = await supabase.functions.invoke('generate-tasks', {
     body: { input, members },
   })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    // FunctionsHttpError exposes the response body via error.context
+    let detail = error.message
+    try {
+      const ctx = (error as { context?: Response }).context
+      if (ctx && typeof ctx.text === 'function') {
+        const bodyText = await ctx.clone().text()
+        if (bodyText) {
+          try {
+            const parsed = JSON.parse(bodyText)
+            detail = parsed.error ?? parsed.message ?? bodyText
+          } catch {
+            detail = bodyText
+          }
+        }
+      }
+    } catch {
+      // ignore unwrap failures
+    }
+    console.error('[callGenerateTasks] edge function error:', detail, error)
+    throw new Error(detail)
+  }
   if (data?.error) throw new Error(data.error)
   return data.tasks as GeneratedTask[]
 }

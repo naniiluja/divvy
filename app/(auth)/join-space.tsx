@@ -6,7 +6,7 @@ import { JoinSpaceBody } from '@/components/space/JoinSpaceBody'
 import { useTheme } from '@/hooks/useTheme'
 import { LIGHT, DARK } from '@/constants/theme'
 
-export default function JoinSpaceAppScreen() {
+export default function JoinSpaceAuthScreen() {
   const router = useRouter()
   const { isDark } = useTheme()
   const c = isDark ? DARK : LIGHT
@@ -14,10 +14,15 @@ export default function JoinSpaceAppScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
       <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
-        <NHeader step={0} total={0} onBack={() => router.back()} />
+        <NHeader step={4} total={5} onBack={() => router.replace('/(auth)/space-type')} />
       </View>
       <JoinSpaceBody
-        onSuccess={() => router.replace('/(app)/(tabs)/' as never)}
+        onSuccess={(space) =>
+          router.replace({
+            pathname: '/(auth)/ai-prompt',
+            params: { spaceId: space.id, spaceName: space.name },
+          })
+        }
       />
     </SafeAreaView>
   )

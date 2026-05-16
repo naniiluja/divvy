@@ -28,8 +28,7 @@ export default function ProfileSetupScreen() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Không tìm thấy user')
       await upsertProfile({ id: user.id, display_name: name.trim(), avatar_emoji: emoji })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      router.replace('/(app)/(tabs)/' as any)
+      router.replace('/(auth)/space-type')
     } catch (err) {
       Alert.alert('Lỗi', err instanceof Error ? err.message : 'Đã có lỗi xảy ra')
     } finally {
@@ -43,7 +42,7 @@ export default function ProfileSetupScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
       >
-        <NHeader step={3} total={5} />
+        <NHeader step={3} total={5} onBack={() => router.replace('/(auth)/welcome')} />
 
         <View style={styles.headingBlock}>
           <Text style={[styles.title, { color: c.textDark }]}>Bạn tên là gì?</Text>

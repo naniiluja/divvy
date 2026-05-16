@@ -12,6 +12,7 @@ import { LIGHT, DARK, RADIUS } from '@/constants/theme'
 import { NButton } from '@/components/ui/NButton'
 import { NHeader } from '@/components/ui/NHeader'
 import { supabase } from '@/lib/supabase'
+import { getSpacesForUser } from '@/lib/api'
 
 WebBrowser.maybeCompleteAuthSession()
 
@@ -87,13 +88,16 @@ export default function SignInScreen() {
       .select('id')
       .eq('id', userId)
       .single()
-    if (profile) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      router.replace('/(app)/(tabs)/' as any)
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      router.replace('/(auth)/profile-setup' as any)
+    if (!profile) {
+      router.replace('/(auth)/profile-setup')
+      return
     }
+    const spaces = await getSpacesForUser(userId)
+    if (spaces.length === 0) {
+      router.replace('/(auth)/space-type')
+      return
+    }
+    router.replace('/(app)/(tabs)/' as never)
   }, [router])
 
   useEffect(() => {

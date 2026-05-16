@@ -217,49 +217,190 @@ async function getSecret(name: string): Promise<string> {
 UPDATE vault.secrets SET secret = 'new-key' WHERE name = 'KEY_NAME';
 ```
 
-## AI Task Generation — MiniMax M2.7 Endpoint
+## Scenario: AI Task Generation — MiniMax M2.7 Endpoint
 
-`generate-tasks` dùng **MiniMax M2.7** qua Anthropic-compatible endpoint (không phải Anthropic SDK).
+### 1. Scope / Trigger
 
-### Endpoint & Auth
+`generate-tasks` edge function gọi **MiniMax M2.7** qua Anthropic-compatible endpoint để gen JSON task array. Trigger code-spec depth: cross-layer contract (client → edge → external LLM), schema validation, env wiring.
+
+### 2. Signatures
+
+```
+Endpoint: POST https://api.minimax.io/anthropic/v1/messages
+Edge:     POST <SUPABASE_URL>/functions/v1/generate-tasks
+Client:   supabase.functions.invoke('generate-tasks', { body })
+```
+
+### 3. Contracts
+
+**Endpoint & Auth (CRITICAL — header type)**
 
 ```
 URL:     https://api.minimax.io/anthropic/v1/messages
-Header:  x-api-key: <MINIMAX_API_KEY>         ← KHÔNG phải "Authorization: Bearer"
+Header:  Authorization: Bearer <MINIMAX_API_KEY>   ← NOT "x-api-key"
 Header:  anthropic-version: 2023-06-01
 Model:   MiniMax-M2.7
 ```
 
-### Request format
+**Edge request/response**
+
+```ts
+// Request
+interface GenerateTasksRequest {
+  input: string                                          // free-text from user
+  members: { id: string; display_name: string }[]        // ≥1 required
+}
+
+// Response (success)
+interface GenerateTasksResponse {
+  tasks: GeneratedTask[]
+  strategy: 'output_config' | 'tool_use' | 'prefill'    // debugging aid
+}
+
+interface GeneratedTask {
+  name: string                                           // Vietnamese
+  icon: string                                           // single emoji
+  frequency: 'daily' | 'weekly' | '3x_week'
+  assignee_display_name: string | null                   // member.display_name or null
+}
+
+// Response (error)
+interface GenerateTasksError { error: string }
+```
+
+**Environment keys**
+
+| Key | Source | Required |
+|---|---|---|
+| `MINIMAX_API_KEY` | Vault (secret name) | yes |
+| `SUPABASE_URL` | runtime | yes |
+| `SUPABASE_SERVICE_ROLE_KEY` | runtime | yes (for vault read) |
+
+### 4. Validation & Error Matrix
+
+| Condition | Status | Error |
+|---|---|---|
+| `input` empty or `members` length 0 | 400 | `'input and members are required'` |
+| MiniMax non-2xx | 500 | `MiniMax API error <status>: <body preview>` |
+| Response not JSON | 500 | `MiniMax returned non-JSON: <preview>` |
+| All 3 strategies fail | 500 | `Failed to parse task JSON: <reason>` |
+| Strategy returns empty array | 500 | `LLM returned empty task list` |
+
+### 5. Good / Base / Bad Cases
+
+- **Good**: Strategy A (`output_config.json_schema`) succeeds → `parsed_output.tasks` validated, returns immediately
+- **Base**: Strategy A unsupported on MiniMax → falls back to Strategy B (`tool_use` forced) → succeeds with `content[].type === 'tool_use'`
+- **Bad**: Both A and B fail → Strategy C (`assistant: '['` prefill) extracts text, slice from `[` to `]`, parse
+
+### 6. Tests Required
+
+- Unit: `extractParsedOutput`, `extractToolUseInput`, `extractTextFromResponse`, `parseJsonArrayFromText` — assert returns expected shape from sample MiniMax responses
+- Integration: full edge call with mock MiniMax server returning each shape (parsed_output → tool_use → text) — assert strategy chain works
+- E2E: real MiniMax call from emulator — assert tasks have valid `frequency` enum + non-empty `name`/`icon`
+
+### 7. Structured Output — Triple Strategy Chain
+
+Edge function tries 3 strategies in order, returns first success.
+
+#### Strategy A: `output_config.json_schema` (most reliable when supported)
 
 ```ts
 const body = {
   model: 'MiniMax-M2.7',
-  max_tokens: 1024,
+  max_tokens: 4096,
   messages: [{ role: 'user', content: prompt }],
-}
-
-const response = await fetch('https://api.minimax.io/anthropic/v1/messages', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-api-key': apiKey,               // ← key này, không phải Authorization
-    'anthropic-version': '2023-06-01',
+  output_config: {
+    format: {
+      type: 'json_schema',
+      schema: TASK_SCHEMA,            // JSON Schema with type/properties/required
+    },
   },
-  body: JSON.stringify(body),
-})
+}
+// Response: data.parsed_output = { tasks: [...] }   ← already validated
 ```
 
-### Parse response
-
-Model trả về JSON array inline trong text block — cần extract:
+#### Strategy B: Tool Use forced (fallback 1)
 
 ```ts
-const textBlock = data.content?.find((b: { type: string }) => b.type === 'text')
-const raw = textBlock.text.trim()
-const jsonStart = raw.indexOf('[')
-const jsonEnd = raw.lastIndexOf(']')
-tasks = JSON.parse(raw.slice(jsonStart, jsonEnd + 1))
+const body = {
+  model: 'MiniMax-M2.7',
+  max_tokens: 4096,
+  tools: [{ name: 'save_tasks', description: '...', input_schema: TASK_SCHEMA }],
+  tool_choice: { type: 'tool', name: 'save_tasks' },   // FORCE tool call
+  messages: [{ role: 'user', content: prompt + '\n\nCall save_tasks with the list.' }],
+}
+// Response: data.content[].type === 'tool_use', .input = { tasks: [...] }
 ```
 
-**Gotcha**: Model đôi khi wrap JSON trong markdown code block — `indexOf('[')` bỏ qua prefix đó.
+#### Strategy C: Assistant Prefill `[` (last resort)
+
+```ts
+const body = {
+  model: 'MiniMax-M2.7',
+  max_tokens: 4096,
+  messages: [
+    { role: 'user', content: `... Return ONLY a JSON array ...` },
+    { role: 'assistant', content: '[' },              // ← FORCE response to start with [
+  ],
+}
+// Response text won't include leading `[` — prepend it before parsing
+const fullText = text.trim().startsWith('[') ? text : '[' + text
+```
+
+### Wrong vs Correct
+
+#### Wrong: x-api-key header
+
+```ts
+// ❌ MiniMax Anthropic-compat returns 401
+headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
+```
+
+#### Correct: Bearer authorization
+
+```ts
+// ✅ MiniMax requires Bearer auth despite Anthropic-compat endpoint
+headers: { 'Authorization': `Bearer ${apiKey}`, 'anthropic-version': '2023-06-01' }
+```
+
+#### Wrong: only look for `type: 'text'` blocks
+
+```ts
+// ❌ Reasoning models (M2.7) return content blocks WITHOUT a `type` field:
+//    [{ thinking: '...reasoning text...' }]
+// Looking for type==='text' returns null → 'No JSON array found'
+const textBlock = data.content?.find((b) => b.type === 'text')
+```
+
+#### Correct: fallback chain across all known shapes
+
+```ts
+// ✅ Try text → any-block-with-.text → thinking-as-last-resort
+const textBlock = blocks.find((b) => b.type === 'text' && typeof b.text === 'string')
+if (textBlock) return textBlock.text
+const anyText = blocks.find((b) => typeof b.text === 'string' && b.text.trim())
+if (anyText) return anyText.text
+const thinking = [...blocks].reverse().find((b) => typeof b.thinking === 'string')
+if (thinking) return thinking.thinking
+```
+
+### Common Mistake: `max_tokens` too low for reasoning models
+
+**Symptom**: M2.7 response truncated mid-sentence, JSON array incomplete (only `[` or first task), `parseJsonArrayFromText` throws.
+
+**Cause**: Reasoning models consume tokens in `thinking` blocks BEFORE producing the answer. `max_tokens: 1024` exhausts on thinking alone.
+
+**Fix**: Set `max_tokens: 4096` minimum for M2.7. For Strategy A (`output_config`), reasoning is gated by `parsed_output` validation so it still needs headroom.
+
+**Prevention**: Watch for response with `stop_reason: 'max_tokens'` in logs.
+
+### Gotcha: Vault decrypt access path
+
+> **Warning**: `supabase.schema('vault').from('decrypted_secrets')` does NOT work — `decrypted_secrets` view requires direct SQL `select` permission. Use RPC `get_vault_secret(secret_name)` instead.
+
+```ts
+// ✅ Working pattern in production
+const { data, error } = await supabase.rpc('get_vault_secret', {
+  secret_name: 'MINIMAX_API_KEY',
+})
+```

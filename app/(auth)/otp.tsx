@@ -68,7 +68,7 @@ export default function OtpScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: c.bg }]}>
       <View style={styles.content}>
-        <NHeader step={2} total={5} />
+        <NHeader step={2} total={5} onBack={() => router.replace('/(auth)/sign-in')} />
 
         <View style={styles.headingBlock}>
           <Text style={[styles.title, { color: c.textDark }]}>Nhập mã 6 số</Text>
