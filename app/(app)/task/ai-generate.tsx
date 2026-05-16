@@ -242,7 +242,7 @@ export default function AIGenerateScreen() {
       return
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-    router.back()
+    router.dismissTo('/(app)/(tabs)')
   }
 
   return (
