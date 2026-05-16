@@ -14,7 +14,6 @@ const SPACE_EMOJIS = ['🏠', '🌿', '🐶', '☀️', '🌊', '🎯', '✨', '
 
 export default function CreateSpaceScreen() {
   const router = useRouter()
-  const user = useStore((s) => s.user)
   const setActiveSpaceId = useStore((s) => s.setActiveSpaceId)
   const [spaceEmoji, setSpaceEmoji] = useState(SPACE_EMOJIS[0])
   const [spaceName, setSpaceName] = useState('')
@@ -27,10 +26,10 @@ export default function CreateSpaceScreen() {
   const valid = spaceName.trim().length >= 2
 
   const handleCreate = async () => {
-    if (!valid || !user?.id) return
+    if (!valid) return
     setIsLoading(true)
     try {
-      const space = await createSpace(spaceName.trim(), spaceEmoji, user.id)
+      const space = await createSpace(spaceName.trim(), spaceEmoji)
       setActiveSpaceId(space.id)
       router.replace('/(app)/(tabs)/' as never)
     } catch (err) {

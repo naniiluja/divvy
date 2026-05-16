@@ -42,10 +42,15 @@ export async function getSpacesForUser(userId: string): Promise<Space[]> {
   return (data as Space[]) ?? []
 }
 
-export async function createSpace(name: string, emoji: string, ownerId: string): Promise<Space> {
+export async function createSpace(name: string, emoji: string): Promise<Space> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại')
+
+  const uid = session.user.id
+
   const { data: space, error: spaceError } = await supabase
     .from('spaces')
-    .insert({ name, emoji, owner_id: ownerId, created_by: ownerId })
+    .insert({ name, emoji, owner_id: uid, created_by: uid })
     .select()
     .single()
 
@@ -53,7 +58,7 @@ export async function createSpace(name: string, emoji: string, ownerId: string):
 
   const { error: memberError } = await supabase
     .from('space_members')
-    .insert({ space_id: space.id, user_id: ownerId, role: 'owner' })
+    .insert({ space_id: space.id, user_id: uid, role: 'owner' })
 
   if (memberError) throw memberError
 

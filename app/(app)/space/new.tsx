@@ -10,7 +10,6 @@ import { useStore } from '@/stores'
 
 export default function NewSpaceScreen() {
   const router = useRouter()
-  const user = useStore((s) => s.user)
   const setActiveSpaceId = useStore((s) => s.setActiveSpaceId)
   const [name, setName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -21,17 +20,15 @@ export default function NewSpaceScreen() {
       setNameError('Vui lòng nhập tên Space')
       return
     }
-    if (!user?.id) return
-
     setIsLoading(true)
     setNameError(undefined)
 
     try {
-      const space = await createSpace(name.trim(), '🏠', user.id)
+      const space = await createSpace(name.trim(), '🏠')
       setActiveSpaceId(space.id)
       router.replace('/(app)/(tabs)/' as never)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Đã có lỗi xảy ra'
+      const message = err instanceof Error ? err.message : JSON.stringify(err)
       Alert.alert('Lỗi', message)
     } finally {
       setIsLoading(false)
