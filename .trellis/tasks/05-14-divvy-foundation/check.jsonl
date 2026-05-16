@@ -1,1 +1,12 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/app-overview.md", "reason": "App-wide context for verifying implementation aligns with architecture"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend spec overview for compliance check"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Verify Neumorphic components follow component structure rules"}
+{"file": ".trellis/spec/frontend/hook-guidelines.md", "reason": "Verify hook implementations follow conventions"}
+{"file": ".trellis/spec/frontend/styling.md", "reason": "Verify NativeWind and shadow styles are correct"}
+{"file": ".trellis/spec/frontend/navigation.md", "reason": "Verify auth guard and navigation structure"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "Primary quality checklist for frontend code review"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "Verify TypeScript strict compliance"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "Verify profiles table schema and RLS policies"}
+{"file": ".trellis/spec/backend/security-guidelines.md", "reason": "Verify secure storage and env var handling"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "Backend quality checklist"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "Check for code duplication across components and hooks"}
