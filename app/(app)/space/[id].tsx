@@ -54,8 +54,12 @@ export default function SpaceDetailScreen() {
       })
       .finally(() => setIsLoading(false))
 
-    channelRef.current = supabase
-      .channel(`space-${spaceId}-completions`)
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current)
+      channelRef.current = null
+    }
+    const channel = supabase
+      .channel(`space-${spaceId}-completions-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -73,9 +77,13 @@ export default function SpaceDetailScreen() {
         },
       )
       .subscribe()
+    channelRef.current = channel
 
     return () => {
-      channelRef.current?.unsubscribe()
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current)
+        channelRef.current = null
+      }
     }
   }, [spaceId, userId, isValidId])
 

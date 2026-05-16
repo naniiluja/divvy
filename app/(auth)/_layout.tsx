@@ -1,6 +1,11 @@
 import { Stack } from 'expo-router'
+import { useSession } from '@/hooks/useSession'
 
 export default function AuthLayout() {
+  // Keeps Zustand session/user store in sync with Supabase auth across the
+  // entire onboarding flow so downstream screens (create-space, ai-review)
+  // always see the current user without manual auth.getUser() calls.
+  useSession()
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="splash" />

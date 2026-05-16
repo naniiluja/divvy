@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, Pressable, ScrollView, StyleSheet, Animated, Alert } from 'react-native'
+import { View, Text, Pressable, ScrollView, StyleSheet, Animated, Easing, Alert } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
+import Svg, { Path } from 'react-native-svg'
 import { NHeader } from '@/components/ui/NHeader'
 import { NButton } from '@/components/ui/NButton'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { LIGHT, DARK, RADIUS, type ThemeColors } from '@/constants/theme'
 import { useStore } from '@/stores'
-import { callGenerateTasks, getSpaceMembers, type GeneratedTask } from '@/lib/api'
+import { callGenerateTasks, getSpaceMembers, getProfile, type GeneratedTask } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import type { SpaceMember } from '@/types'
 
@@ -30,30 +31,78 @@ interface AssigneeOption {
   emoji: string
 }
 
-function LoadingDots({ color }: { color: string }) {
-  const v = useRef([0, 1, 2].map(() => new Animated.Value(0.25))).current
+function AISpinner({ c, shadow }: { c: ThemeColors; shadow: (kind: 'raised' | 'inset' | 'accent', size: 'sm' | 'md' | 'lg') => object }) {
+  const spin = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.stagger(
-        220,
-        v.map((val) =>
-          Animated.sequence([
-            Animated.timing(val, { toValue: 1, duration: 400, useNativeDriver: true }),
-            Animated.timing(val, { toValue: 0.25, duration: 400, useNativeDriver: true }),
-          ]),
-        ),
-      ),
-    )
-    loop.start()
-    return () => loop.stop()
-  }, [v])
+    Animated.loop(
+      Animated.timing(spin, { toValue: 1, duration: 1200, easing: Easing.linear, useNativeDriver: true }),
+    ).start()
+  }, [spin])
+
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })
 
   return (
-    <View style={styles.dotRow}>
-      {v.map((val, i) => (
-        <Animated.View key={i} style={[styles.loadDot, { backgroundColor: color, opacity: val }]} />
-      ))}
+    <View style={[styles.spinnerOuter, { backgroundColor: c.bg, ...shadow('inset', 'md') }]}>
+      <Animated.View
+        style={[
+          styles.spinnerRing,
+          {
+            borderTopColor: c.accent,
+            borderRightColor: c.accent2,
+            transform: [{ rotate }],
+          },
+        ]}
+      />
+      <View style={[styles.spinnerCore, { backgroundColor: c.bg, ...shadow('raised', 'sm') }]}>
+        <Svg width={28} height={28} viewBox="0 0 24 24">
+          <Path
+            d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7zM19 4v3M21 5.5h-3M5 17v2M6 18H4"
+            stroke={c.accent}
+            strokeWidth={1.6}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+        </Svg>
+      </View>
+    </View>
+  )
+}
+
+function StepRow({
+  label,
+  index,
+  c,
+  shadow,
+}: {
+  label: string
+  index: number
+  c: ThemeColors
+  shadow: (kind: 'raised' | 'inset' | 'accent', size: 'sm' | 'md' | 'lg') => object
+}) {
+  const fill = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.delay(index * 600),
+        Animated.timing(fill, { toValue: 1, duration: 600, useNativeDriver: false }),
+        Animated.timing(fill, { toValue: 0, duration: 0, useNativeDriver: false }),
+        Animated.delay(1800 - (index + 1) * 600),
+      ]),
+    ).start()
+  }, [fill, index])
+
+  const dotBg = fill.interpolate({ inputRange: [0, 1], outputRange: [c.bg, c.accent] })
+  const insetSm = shadow('inset', 'sm')
+
+  return (
+    <View style={[styles.stepRow, { backgroundColor: c.bg, ...shadow('raised', 'sm') }]}>
+      <Animated.View
+        style={[styles.stepDot, insetSm, { backgroundColor: dotBg }]}
+      />
+      <Text style={[styles.stepText, { color: c.textMid }]}>{label}</Text>
     </View>
   )
 }
@@ -61,16 +110,25 @@ function LoadingDots({ color }: { color: string }) {
 export default function AIReviewScreen() {
   const router = useRouter()
   const { spaceId, prompt } = useLocalSearchParams<{ spaceId: string; spaceName: string; prompt: string }>()
-  const userId = useStore((s) => s.user?.id)
+  const storeUserId = useStore((s) => s.user?.id)
   const { shadow } = useNeumorphic()
   const { isDark } = useTheme()
   const c = isDark ? DARK : LIGHT
 
+  const [authUserId, setAuthUserId] = useState<string | null>(null)
   const [phase, setPhase] = useState<'loading' | 'review' | 'error'>('loading')
   const [errorMsg, setErrorMsg] = useState('')
   const [tasks, setTasks] = useState<GeneratedTask[]>([])
   const [members, setMembers] = useState<MemberWithProfile[]>([])
   const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (!error && data.user) setAuthUserId(data.user.id)
+    })
+  }, [])
+
+  const userId = authUserId ?? storeUserId
 
   const runGenerate = async (signal?: { cancelled: boolean }) => {
     if (!spaceId || !prompt) return
@@ -78,10 +136,26 @@ export default function AIReviewScreen() {
     setErrorMsg('')
     try {
       const memberRows = await getSpaceMembers(spaceId) as MemberWithProfile[]
-      const memberInputs = memberRows.map((m) => ({
+      console.log('[ai-review] spaceId:', spaceId, 'members fetched:', memberRows.length, memberRows)
+
+      let memberInputs = memberRows.map((m) => ({
         id: m.user_id,
         display_name: m.profiles?.display_name ?? 'Bạn',
       }))
+
+      // Fallback: nếu RLS chặn space_members select, dùng current user làm member
+      if (memberInputs.length === 0) {
+        const { data: authData } = await supabase.auth.getUser()
+        if (authData.user) {
+          const profile = await getProfile(authData.user.id)
+          memberInputs = [{
+            id: authData.user.id,
+            display_name: profile?.display_name ?? 'Bạn',
+          }]
+          console.warn('[ai-review] fallback to current user as sole member:', memberInputs)
+        }
+      }
+
       const generated = await callGenerateTasks(prompt, memberInputs)
       if (signal?.cancelled) return
       setMembers(memberRows)
@@ -90,6 +164,7 @@ export default function AIReviewScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     } catch (err) {
       if (signal?.cancelled) return
+      console.error('[ai-review] runGenerate failed:', err)
       setErrorMsg(err instanceof Error ? err.message : 'Không thể tạo task')
       setPhase('error')
     }
@@ -137,7 +212,19 @@ export default function AIReviewScreen() {
   }
 
   const handleSave = async () => {
-    if (!spaceId || !userId || tasks.length === 0) return
+    if (!spaceId) {
+      Alert.alert('Thiếu thông tin', 'Không tìm thấy Space.')
+      return
+    }
+    if (!userId) {
+      Alert.alert('Phiên đăng nhập đã hết hạn', 'Vui lòng đăng nhập lại.')
+      router.replace('/(auth)/welcome')
+      return
+    }
+    if (tasks.length === 0) {
+      Alert.alert('Chưa có task nào', 'Tạo lại với mô tả khác nhé.')
+      return
+    }
     setIsSaving(true)
     const toInsert = tasks.map((t) => {
       const assigneeMember = members.find((m) => m.profiles?.display_name === t.assignee_display_name)
@@ -153,7 +240,8 @@ export default function AIReviewScreen() {
     const { error } = await supabase.from('tasks').insert(toInsert)
     setIsSaving(false)
     if (error) {
-      Alert.alert('Lỗi', error.message)
+      console.error('[ai-review] insert tasks failed:', error)
+      Alert.alert('Không thể lưu task', `${error.message}${error.code ? ` (${error.code})` : ''}`)
       return
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
@@ -163,17 +251,23 @@ export default function AIReviewScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: c.bg }]}>
       <View style={styles.header}>
-        <NHeader step={5} total={5} />
+        <NHeader step={5} total={5} onBack={() => router.replace('/(auth)/notif-permission')} />
       </View>
 
       {phase === 'loading' && (
         <View style={styles.loadingWrap}>
-          <View style={[styles.loadCircle, { backgroundColor: c.bg, ...shadow('raised', 'lg') }]}>
-            <View style={[styles.loadSpinner, { borderTopColor: c.accent, borderRightColor: c.accent }]} />
+          <AISpinner c={c} shadow={shadow} />
+          <View style={styles.loadTextBlock}>
+            <Text style={[styles.loadTitle, { color: c.textDark }]}>Claude đang chia việc…</Text>
+            <Text style={[styles.loadSub, { color: c.textMid }]}>
+              Đang phân tích thói quen và chia đều cho {Math.max(members.length, 1)} người
+            </Text>
           </View>
-          <Text style={[styles.loadTitle, { color: c.textDark }]}>Claude đang chia việc…</Text>
-          <Text style={[styles.loadSub, { color: c.textMid }]}>Mất khoảng 3-5 giây.</Text>
-          <LoadingDots color={c.accent} />
+          <View style={styles.stepList}>
+            {['Đọc mô tả của bạn', 'Tạo cấu trúc task', 'Phân chia cho members'].map((s, i) => (
+              <StepRow key={s} label={s} index={i} c={c} shadow={shadow} />
+            ))}
+          </View>
         </View>
       )}
 
@@ -258,24 +352,41 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
-    gap: 16,
+    paddingHorizontal: 28,
+    paddingVertical: 32,
+    gap: 28,
   },
-  loadCircle: {
+  spinnerOuter: {
     width: 130, height: 130, borderRadius: 65,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 16,
+    position: 'relative',
   },
-  loadSpinner: {
-    width: 64, height: 64, borderRadius: 32,
+  spinnerRing: {
+    position: 'absolute', top: 14, left: 14, right: 14, bottom: 14,
+    borderRadius: 999,
     borderWidth: 4,
     borderColor: 'transparent',
-    transform: [{ rotate: '45deg' }],
   },
+  spinnerCore: {
+    width: 70, height: 70, borderRadius: 35,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  loadTextBlock: { alignItems: 'center', gap: 6 },
   loadTitle: { fontSize: 22, fontWeight: '700', letterSpacing: -0.6, textAlign: 'center' },
-  loadSub: { fontSize: 14, textAlign: 'center' },
-  dotRow: { flexDirection: 'row', gap: 8, marginTop: 16 },
-  loadDot: { width: 8, height: 8, borderRadius: 4 },
+  loadSub: { fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  stepList: { width: '100%', gap: 8 },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  stepDot: {
+    width: 18, height: 18, borderRadius: 9,
+  },
+  stepText: { fontSize: 13 },
 
   list: {
     paddingHorizontal: 24,

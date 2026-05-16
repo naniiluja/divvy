@@ -14,7 +14,7 @@ export default function JoinSpaceAuthScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
       <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
-        <NHeader step={4} total={5} />
+        <NHeader step={4} total={5} onBack={() => router.replace('/(auth)/space-type')} />
       </View>
       <JoinSpaceBody
         onSuccess={(space) =>

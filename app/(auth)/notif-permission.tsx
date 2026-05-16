@@ -52,7 +52,7 @@ export default function NotifPermissionScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: c.bg }]}>
       <View style={styles.content}>
-        <NHeader step={5} total={5} />
+        <NHeader step={5} total={5} onBack={() => router.replace('/(auth)/done')} />
 
         <View style={styles.bellWrap}>
           <View style={[styles.bellCircle, { backgroundColor: c.bg, ...shadow('raised', 'lg') }]}>

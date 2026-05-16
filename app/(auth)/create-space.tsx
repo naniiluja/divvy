@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet, Alert, TextInput } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Clipboard from 'expo-clipboard'
 import * as Haptics from 'expo-haptics'
+import type { User } from '@supabase/supabase-js'
 import { NInput } from '@/components/ui/NInput'
 import { NButton } from '@/components/ui/NButton'
 import { NHeader } from '@/components/ui/NHeader'
@@ -11,7 +12,8 @@ import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
 import { LIGHT, DARK, RADIUS } from '@/constants/theme'
 import { useStore } from '@/stores'
-import { createSpace, getOrCreateInviteLink } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
+import { createSpace, getOrCreateInviteLink, getProfile } from '@/lib/api'
 
 const SPACE_EMOJIS = ['🏠', '🌿', '🐶', '☀️', '🌊', '🎯', '✨', '🔥']
 const MEMBER_EMOJIS = ['👤', '👩', '👨', '🧑', '👧', '👦', '🐶', '🐱']
@@ -24,9 +26,12 @@ interface PlaceholderMember {
 
 export default function CreateSpaceScreen() {
   const router = useRouter()
-  const user = useStore((s) => s.user)
+  const storeUser = useStore((s) => s.user)
   const setActiveSpaceId = useStore((s) => s.setActiveSpaceId)
 
+  const [authUser, setAuthUser] = useState<User | null>(null)
+  const [profileName, setProfileName] = useState<string | null>(null)
+  const [profileEmoji, setProfileEmoji] = useState<string | null>(null)
   const [spaceEmoji, setSpaceEmoji] = useState(SPACE_EMOJIS[0])
   const [spaceName, setSpaceName] = useState('')
   const [extraMembers, setExtraMembers] = useState<PlaceholderMember[]>([])
@@ -36,10 +41,27 @@ export default function CreateSpaceScreen() {
   const { isDark } = useTheme()
   const c = isDark ? DARK : LIGHT
 
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data, error }) => {
+      if (error || !data.user) return
+      setAuthUser(data.user)
+      const profile = await getProfile(data.user.id)
+      if (profile) {
+        setProfileName(profile.display_name)
+        setProfileEmoji(profile.avatar_emoji ?? null)
+      }
+    })
+  }, [])
+
+  const user = authUser ?? storeUser
   const valid = spaceName.trim().length >= 2
 
-  const displayName = (user?.user_metadata?.display_name as string | undefined) ?? 'Bạn'
-  const avatarEmoji = (user?.user_metadata?.avatar_emoji as string | undefined) ?? '🌸'
+  const displayName = profileName
+    ?? (user?.user_metadata?.display_name as string | undefined)
+    ?? 'Bạn'
+  const avatarEmoji = profileEmoji
+    ?? (user?.user_metadata?.avatar_emoji as string | undefined)
+    ?? '🌸'
 
   const addMember = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -79,7 +101,15 @@ export default function CreateSpaceScreen() {
   }
 
   const handleCreate = async () => {
-    if (!valid || !user?.id) return
+    if (!valid) {
+      Alert.alert('Thiếu thông tin', 'Tên Space phải có ít nhất 2 ký tự.')
+      return
+    }
+    if (!user?.id) {
+      Alert.alert('Phiên đăng nhập đã hết hạn', 'Vui lòng đăng nhập lại.')
+      router.replace('/(auth)/welcome')
+      return
+    }
     setIsLoading(true)
     try {
       const space = await createSpace(spaceName.trim(), spaceEmoji, user.id)
@@ -89,7 +119,11 @@ export default function CreateSpaceScreen() {
         params: { spaceId: space.id, spaceName: space.name },
       })
     } catch (err) {
-      Alert.alert('Lỗi', err instanceof Error ? err.message : 'Đã có lỗi xảy ra')
+      console.error('[create-space] handleCreate failed:', err)
+      const message = err instanceof Error
+        ? `${err.message}${'code' in err && err.code ? ` (${err.code})` : ''}`
+        : JSON.stringify(err)
+      Alert.alert('Không thể tạo Space', message)
     } finally {
       setIsLoading(false)
     }
@@ -98,7 +132,7 @@ export default function CreateSpaceScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: c.bg }]}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <NHeader step={4} total={5} />
+        <NHeader step={4} total={5} onBack={() => router.replace('/(auth)/space-type')} />
 
         <View style={styles.header}>
           <Text style={[styles.title, { color: c.textDark }]}>Đặt tên Space</Text>

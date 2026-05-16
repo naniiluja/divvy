@@ -42,7 +42,7 @@ export default function ProfileSetupScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
       >
-        <NHeader step={3} total={5} />
+        <NHeader step={3} total={5} onBack={() => router.replace('/(auth)/welcome')} />
 
         <View style={styles.headingBlock}>
           <Text style={[styles.title, { color: c.textDark }]}>Bạn tên là gì?</Text>

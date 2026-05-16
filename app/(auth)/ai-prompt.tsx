@@ -37,7 +37,7 @@ export default function AIPromptScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: c.bg }]}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <NHeader step={5} total={5} />
+        <NHeader step={5} total={5} onBack={() => router.replace('/(auth)/notif-permission')} />
 
         <View style={[styles.badge, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
           <Text style={styles.badgeEmoji}>✨</Text>
