@@ -91,7 +91,6 @@ export async function getSpaceMembers(spaceId: string): Promise<SpaceMember[]> {
     .eq('space_id', spaceId)
 
   if (memberErr || !memberRows?.length) {
-    if (memberErr) console.error('[getSpaceMembers] members error:', memberErr.message)
     return []
   }
 
@@ -102,17 +101,16 @@ export async function getSpaceMembers(spaceId: string): Promise<SpaceMember[]> {
     .in('id', userIds)
 
   if (profErr) {
-    console.error('[getSpaceMembers] profiles error:', profErr.message)
     return memberRows as SpaceMember[]
   }
 
   const profileMap = new Map(profileRows?.map((p) => [p.id, p]) ?? [])
   return memberRows.map((m) => ({
     ...m,
-    profiles: profileMap.get(m.user_id)
+    profiles: profileMap.has(m.user_id)
       ? {
-          display_name: profileMap.get(m.user_id)!.display_name,
-          avatar_emoji: profileMap.get(m.user_id)!.avatar_emoji,
+          display_name: profileMap.get(m.user_id)?.display_name ?? '',
+          avatar_emoji: profileMap.get(m.user_id)?.avatar_emoji ?? '',
         }
       : undefined,
   })) as SpaceMember[]
@@ -302,7 +300,6 @@ export async function callGenerateTasks(
     } catch {
       // ignore unwrap failures
     }
-    console.error('[callGenerateTasks] edge function error:', detail, error)
     throw new Error(detail)
   }
   if (data?.error) throw new Error(data.error)

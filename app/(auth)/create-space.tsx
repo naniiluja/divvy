@@ -89,7 +89,7 @@ export default function CreateSpaceScreen() {
     if (!user?.id) return
     try {
       // create space first if not yet, then generate invite link
-      const space = await createSpace(spaceName.trim() || 'Space mới', spaceEmoji, user.id)
+      const space = await createSpace(spaceName.trim() || 'Space mới', spaceEmoji)
       const invite = await getOrCreateInviteLink(space.id, user.id)
       await Clipboard.setStringAsync(`divvy://join/${invite.token}`)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)

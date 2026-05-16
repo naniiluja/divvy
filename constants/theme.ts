@@ -1,28 +1,3 @@
-export const colors = {
-  light: {
-    bg: '#E4E9F2',
-    bg2: '#D9DFEC',
-    neuLight: 'rgba(255,255,255,0.95)',
-    neuDark: 'rgba(163,177,198,0.55)',
-    textDark: '#2D3454',
-    textMid: '#737CA0',
-    textLight: '#A6AEC8',
-    accent: '#6C7CFF',
-    accent2: '#A78BFA',
-  },
-  dark: {
-    bg: '#262B3D',
-    bg2: '#1E2231',
-    neuLight: 'rgba(73,82,110,0.5)',
-    neuDark: 'rgba(8,10,18,0.55)',
-    textDark: '#E8ECF8',
-    textMid: '#9DA5C2',
-    textLight: '#5C6584',
-    accent: '#6C7CFF',
-    accent2: '#A78BFA',
-  },
-} as const
-
 export interface ThemeColors {
   bg: string
   bg2: string
@@ -31,6 +6,7 @@ export interface ThemeColors {
   textLight: string
   accent: string
   accent2: string
+  error: string
 }
 
 export const LIGHT: ThemeColors = {
@@ -41,6 +17,7 @@ export const LIGHT: ThemeColors = {
   textLight: '#A6AEC8',
   accent: '#6C7CFF',
   accent2: '#A78BFA',
+  error: '#EF4444',
 }
 
 export const DARK: ThemeColors = {
@@ -51,7 +28,10 @@ export const DARK: ThemeColors = {
   textLight: '#5C6584',
   accent: '#6C7CFF',
   accent2: '#A78BFA',
+  error: '#EF4444',
 }
+
+export const colors = { light: LIGHT, dark: DARK } as const
 
 export const RADIUS = {
   card: 28,

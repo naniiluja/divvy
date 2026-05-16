@@ -1,6 +1,8 @@
 import { Pressable, Text, ActivityIndicator } from 'react-native'
 import type { FC } from 'react'
 import * as Haptics from 'expo-haptics'
+import { useTheme } from '@/hooks/useTheme'
+import { LIGHT, DARK } from '@/constants/theme'
 
 export type ButtonVariant = 'accent' | 'ghost'
 export type ButtonSize = 'lg' | 'md' | 'sm'
@@ -34,6 +36,9 @@ export const Button: FC<ButtonProps> = ({
   isLoading = false,
   isDisabled = false,
 }) => {
+  const { isDark } = useTheme()
+  const c = isDark ? DARK : LIGHT
+
   const handlePress = () => {
     if (isDisabled || isLoading) return
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -56,7 +61,7 @@ export const Button: FC<ButtonProps> = ({
       ].join(' ')}
     >
       {isLoading ? (
-        <ActivityIndicator color={isAccent ? '#fff' : '#6C7CFF'} size="small" />
+        <ActivityIndicator color={isAccent ? c.bg : c.accent} size="small" />
       ) : (
         <Text
           className={[
