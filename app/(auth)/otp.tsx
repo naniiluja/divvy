@@ -15,16 +15,17 @@ export default function OtpScreen() {
   const { isDark } = useTheme()
   const c = isDark ? DARK : LIGHT
 
-  const [digits, setDigits] = useState<string[]>(['', '', '', ''])
+  const OTP_LEN = 6
+  const [digits, setDigits] = useState<string[]>(Array(OTP_LEN).fill(''))
   const [isLoading, setIsLoading] = useState(false)
-  const inputRefs = useRef<(TextInput | null)[]>([null, null, null, null])
+  const inputRefs = useRef<(TextInput | null)[]>(Array(OTP_LEN).fill(null))
 
   const handleDigit = (text: string, i: number) => {
     const d = text.replace(/[^0-9]/g, '').slice(-1)
     const next = [...digits]
     next[i] = d
     setDigits(next)
-    if (d && i < 3) inputRefs.current[i + 1]?.focus()
+    if (d && i < OTP_LEN - 1) inputRefs.current[i + 1]?.focus()
   }
 
   const handleKey = (key: string, i: number) => {
@@ -70,7 +71,7 @@ export default function OtpScreen() {
         <NHeader step={2} total={5} />
 
         <View style={styles.headingBlock}>
-          <Text style={[styles.title, { color: c.textDark }]}>Nhập mã 4 số</Text>
+          <Text style={[styles.title, { color: c.textDark }]}>Nhập mã 6 số</Text>
           <Text style={[styles.subtitle, { color: c.textMid }]}>
             Đã gửi đến{' '}
             <Text style={{ color: c.textDark, fontWeight: '700' }}>
@@ -81,7 +82,7 @@ export default function OtpScreen() {
           </Text>
         </View>
 
-        {/* 4 OTP boxes */}
+        {/* 6 OTP boxes */}
         <View style={styles.otpRow}>
           {digits.map((digit, i) => (
             <View
@@ -153,24 +154,24 @@ const styles = StyleSheet.create({
   },
   otpRow: {
     flexDirection: 'row',
-    gap: 14,
+    gap: 8,
     justifyContent: 'space-between',
     marginTop: 8,
   },
   otpBox: {
     flex: 1,
-    height: 76,
-    borderRadius: 22,
+    height: 64,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   otpInput: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: '700',
     textAlign: 'center',
     width: '100%',
     height: '100%',
-    letterSpacing: -0.02 * 32,
+    letterSpacing: -0.02 * 26,
   },
   resendRow: {
     flexDirection: 'row',

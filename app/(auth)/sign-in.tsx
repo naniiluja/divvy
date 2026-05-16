@@ -1,8 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { View, Text, Pressable, TextInput, Alert, StyleSheet, Animated, Platform } from 'react-native'
 import { useRouter } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
-import * as AuthSession from 'expo-auth-session'
+import { makeRedirectUri } from 'expo-auth-session'
+import * as QueryParams from 'expo-auth-session/build/QueryParams'
+import * as Linking from 'expo-linking'
 import Constants from 'expo-constants'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
@@ -44,7 +46,8 @@ export default function SignInScreen() {
   const { isDark } = useTheme()
   const c = isDark ? DARK : LIGHT
 
-  const redirectUrl = AuthSession.makeRedirectUri({ scheme: 'divvy' })
+  const redirectUrl = makeRedirectUri()
+  const url = Linking.useURL()
 
   const valid = method === 'email'
     ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
@@ -65,7 +68,10 @@ export default function SignInScreen() {
   const handleEmailContinue = async () => {
     setIsLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithOtp({ email: value.trim() })
+      const { error } = await supabase.auth.signInWithOtp({
+        email: value.trim(),
+        options: { shouldCreateUser: true, emailRedirectTo: undefined },
+      })
       if (error) throw error
       router.push({ pathname: '/(auth)/otp', params: { method: 'email', value: value.trim() } })
     } catch (err) {
@@ -75,7 +81,7 @@ export default function SignInScreen() {
     }
   }
 
-  const navigateAfterGoogle = async (userId: string) => {
+  const navigateAfterGoogle = useCallback(async (userId: string) => {
     const { data: profile } = await supabase
       .from('profiles')
       .select('id')
@@ -88,7 +94,26 @@ export default function SignInScreen() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       router.replace('/(auth)/profile-setup' as any)
     }
-  }
+  }, [router])
+
+  useEffect(() => {
+    if (!url) return
+    const createSessionFromUrl = async () => {
+      const normalizedUrl = url.includes('#') ? url.replace(/^[^#]*#/, '?') : url
+      const { params, errorCode } = QueryParams.getQueryParams(normalizedUrl)
+      if (errorCode || !params.access_token) return
+      const { error } = await supabase.auth.setSession({
+        access_token: params.access_token,
+        refresh_token: params.refresh_token,
+      })
+      if (error) return
+      await new Promise(r => setTimeout(r, 300))
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.id) return
+      await navigateAfterGoogle(user.id)
+    }
+    createSessionFromUrl()
+  }, [url, navigateAfterGoogle])
 
   const handleGoogleExpoGo = async () => {
     setIsLoading(true)
@@ -99,20 +124,20 @@ export default function SignInScreen() {
       })
       if (error) throw error
 
-      const result = await WebBrowser.openAuthSessionAsync(data.url!, redirectUrl)
-
+      const result = await WebBrowser.openAuthSessionAsync(data.url ?? '', redirectUrl)
       if (result.type !== 'success') return
 
-      const url = result.url
-      const params = new URLSearchParams(url.split('#')[1] ?? url.split('?')[1] ?? '')
-      const accessToken = params.get('access_token')
-      const refreshToken = params.get('refresh_token')
+      const rawUrl = result.url
+      const hashPart = rawUrl.includes('#') ? rawUrl.replace(/^[^#]*#/, '?') : rawUrl
+      const { params, errorCode } = QueryParams.getQueryParams(hashPart)
+      if (errorCode) throw new Error(errorCode)
 
-      if (!accessToken || !refreshToken) throw new Error('Không lấy được token từ Google')
+      const { access_token, refresh_token } = params
+      if (!access_token) throw new Error('Không lấy được access token')
 
       const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
+        access_token,
+        refresh_token,
       })
       if (sessionError) throw sessionError
 
