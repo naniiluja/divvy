@@ -1,6 +1,8 @@
 import { Tabs } from 'expo-router'
-import { colors } from '@/constants/theme'
 import Svg, { Rect, Path, Circle } from 'react-native-svg'
+import { useTheme } from '@/hooks/useTheme'
+import { useNeumorphic } from '@/hooks/useNeumorphic'
+import { LIGHT, DARK } from '@/constants/theme'
 
 function IconToday({ color }: { color: string }) {
   return (
@@ -40,30 +42,35 @@ function IconProfile({ color }: { color: string }) {
   )
 }
 
-const TAB_BAR_STYLE = {
-  position: 'absolute' as const,
-  left: 14,
-  right: 14,
-  bottom: 20,
-  borderRadius: 28,
-  backgroundColor: colors.light.bg,
-  borderTopWidth: 0,
-  elevation: 0,
-  shadowOpacity: 0,
-  height: 68,
-  paddingBottom: 6,
-  paddingTop: 6,
-  paddingHorizontal: 6,
-}
-
 export default function TabsLayout() {
+  const { isDark } = useTheme()
+  const c = isDark ? DARK : LIGHT
+  const { shadow } = useNeumorphic()
+
+  const tabBarStyle = {
+    position: 'absolute' as const,
+    left: 14,
+    right: 14,
+    bottom: 20,
+    borderRadius: 28,
+    backgroundColor: c.bg,
+    borderTopWidth: 0,
+    elevation: 0,
+    shadowOpacity: 0,
+    height: 68,
+    paddingBottom: 6,
+    paddingTop: 6,
+    paddingHorizontal: 6,
+    ...shadow('raised', 'md'),
+  }
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: TAB_BAR_STYLE,
-        tabBarActiveTintColor: colors.light.accent,
-        tabBarInactiveTintColor: colors.light.textMid,
+        tabBarStyle,
+        tabBarActiveTintColor: c.accent,
+        tabBarInactiveTintColor: c.textMid,
         tabBarLabelStyle: {
           fontFamily: 'PlusJakartaSans_600SemiBold',
           fontSize: 10,
@@ -100,12 +107,6 @@ export default function TabsLayout() {
         options={{
           title: 'Bạn',
           tabBarIcon: ({ color }) => <IconProfile color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="spaces"
-        options={{
-          href: null,
         }}
       />
     </Tabs>

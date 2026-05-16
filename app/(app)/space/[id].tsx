@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Alert } from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
@@ -22,7 +22,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export default function SpaceDetailScreen() {
   const { id: spaceId } = useLocalSearchParams<{ id: string }>()
-  const router = useRouter()
   const userId = useStore((s) => s.user?.id)
 
   const [space, setSpace] = useState<Space | null>(null)
@@ -106,18 +105,13 @@ export default function SpaceDetailScreen() {
   return (
     <SafeAreaView className="flex-1 bg-neu-bg dark:bg-neu-d-bg">
       <ScreenHeader title={space?.name ?? 'Space'} showBack />
-      {space && (
-        <SpaceHeader
-          space={space}
-          onInvitePress={() => router.push(`/(app)/space/invite/${spaceId}` as never)}
-        />
-      )}
+      {space && <SpaceHeader space={space} />}
       <TaskList
         tasks={tasks}
         completions={completions}
         isLoading={isLoading}
         onTick={handleTick}
-        onSkip={handleSkip}
+        onLongPress={(task) => handleSkip(task.id)}
       />
     </SafeAreaView>
   )

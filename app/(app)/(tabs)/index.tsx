@@ -3,10 +3,12 @@ import { Alert, View, Text, Pressable, StyleSheet, ScrollView } from 'react-nati
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
-import Svg, { Circle } from 'react-native-svg'
 import { SpaceHeader } from '@/components/space/SpaceHeader'
+import { SpaceSwitcherSheet } from '@/components/space/SpaceSwitcherSheet'
 import { TaskCard } from '@/components/task/TaskCard'
+import { SkipCoverSheet } from '@/components/task/SkipCoverSheet'
 import { TaskCardSkeleton } from '@/components/ui/Skeleton'
+import { ProgressRing } from '@/components/ui/ProgressRing'
 import { EmptyState } from '@/components/layout/EmptyState'
 import { useStore } from '@/stores'
 import { supabase } from '@/lib/supabase'
@@ -23,29 +25,6 @@ import { LIGHT, DARK, RADIUS } from '@/constants/theme'
 import type { Space, Task, TaskCompletion } from '@/types'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
-function ProgressRing({ pct }: { pct: number }) {
-  const size = 50
-  const strokeW = 3
-  const r = (size - strokeW * 2) / 2
-  const C = 2 * Math.PI * r
-  const dash = (pct / 100) * C
-  return (
-    <View style={[styles.ringWrap, { width: size, height: size }]}>
-      <Svg width={size} height={size} style={styles.ringAbsolute}>
-        <Circle
-          cx={size / 2} cy={size / 2} r={r}
-          fill="none" stroke="#6C7CFF" strokeWidth={strokeW}
-          strokeLinecap="round"
-          strokeDasharray={`${dash} ${C}`}
-          rotation="-90"
-          origin={`${size / 2}, ${size / 2}`}
-        />
-      </Svg>
-      <Text style={styles.ringPct}>{pct}<Text style={styles.ringPctSmall}>%</Text></Text>
-    </View>
-  )
-}
-
 export default function HomeScreen() {
   const router = useRouter()
   const activeSpaceId = useStore((s) => s.activeSpaceId)
@@ -56,6 +35,8 @@ export default function HomeScreen() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [completions, setCompletions] = useState<TaskCompletion[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [switcherOpen, setSwitcherOpen] = useState(false)
+  const [skipFor, setSkipFor] = useState<Task | null>(null)
 
   const channelRef = useRef<RealtimeChannel | null>(null)
 
@@ -136,7 +117,7 @@ export default function HomeScreen() {
       {space && (
         <SpaceHeader
           space={space}
-          onInvitePress={() => router.push(`/(app)/space/invite/${activeSpaceId}` as never)}
+          onPressSpace={() => setSwitcherOpen(true)}
         />
       )}
 
@@ -186,7 +167,14 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.taskList}>
                   {todoTasks.map((t) => (
-                    <TaskCard key={t.id} task={t} lastCompletion={completions.find((c) => c.task_id === t.id) ?? null} onTick={handleTick} onSkip={handleSkip} />
+                    <TaskCard
+                      key={t.id}
+                      task={t}
+                      lastCompletion={completions.find((c) => c.task_id === t.id) ?? null}
+                      onTick={handleTick}
+                      onPress={() => router.push(`/(app)/task/${t.id}` as never)}
+                      onLongPress={() => setSkipFor(t)}
+                    />
                   ))}
                 </View>
               </>
@@ -197,7 +185,14 @@ export default function HomeScreen() {
                 <Text style={[styles.sectionLabel, { color: c.textMid, marginTop: 22, paddingHorizontal: 6 }]}>ĐÃ XONG · {doneTasks.length}</Text>
                 <View style={[styles.taskList, { marginTop: 10 }]}>
                   {doneTasks.map((t) => (
-                    <TaskCard key={t.id} task={t} lastCompletion={completions.find((c) => c.task_id === t.id) ?? null} onTick={handleTick} onSkip={handleSkip} />
+                    <TaskCard
+                      key={t.id}
+                      task={t}
+                      lastCompletion={completions.find((c) => c.task_id === t.id) ?? null}
+                      onTick={handleTick}
+                      onPress={() => router.push(`/(app)/task/${t.id}` as never)}
+                      onLongPress={() => setSkipFor(t)}
+                    />
                   ))}
                 </View>
               </>
@@ -215,6 +210,21 @@ export default function HomeScreen() {
           </>
         )}
       </ScrollView>
+
+      <SpaceSwitcherSheet
+        visible={switcherOpen}
+        onClose={() => setSwitcherOpen(false)}
+      />
+
+      <SkipCoverSheet
+        visible={skipFor !== null}
+        task={skipFor}
+        onClose={() => setSkipFor(null)}
+        onSkip={async (taskId) => {
+          setSkipFor(null)
+          await handleSkip(taskId)
+        }}
+      />
     </SafeAreaView>
   )
 }
@@ -231,10 +241,6 @@ const styles = StyleSheet.create({
   greetStatText: { fontSize: 13 },
   greetStatBold: { fontWeight: '600' },
   greetDivider: { fontSize: 13 },
-  ringWrap: { alignItems: 'center', justifyContent: 'center' },
-  ringAbsolute: { position: 'absolute' },
-  ringPct: { fontSize: 12, fontWeight: '700', letterSpacing: -0.3 },
-  ringPctSmall: { fontSize: 8 },
   skeletons: { gap: 12 },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6, marginBottom: 10 },
   sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
