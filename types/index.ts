@@ -21,6 +21,10 @@ export interface SpaceMember {
   user_id: string
   role: 'owner' | 'member'
   joined_at: string
+  profiles?: {
+    display_name?: string
+    avatar_emoji?: string
+  }
 }
 
 export interface Task {

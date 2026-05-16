@@ -1,38 +1,87 @@
-import { View, Text, Pressable } from 'react-native'
+import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import type { FC } from 'react'
+import { useNeumorphic } from '@/hooks/useNeumorphic'
+import { useTheme } from '@/hooks/useTheme'
+import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { IconBell, IconChevronRight } from '@/components/ui/NIcons'
 import type { Space } from '@/types'
 
 interface SpaceHeaderProps {
   space: Space
-  onInvitePress: () => void
+  onPressSpace?: () => void
 }
 
-export const SpaceHeader: FC<SpaceHeaderProps> = ({ space, onInvitePress }) => {
+export const SpaceHeader: FC<SpaceHeaderProps> = ({ space, onPressSpace }) => {
   const router = useRouter()
+  const { shadow } = useNeumorphic()
+  const { isDark } = useTheme()
+  const c = isDark ? DARK : LIGHT
 
   return (
-    <View className="flex-row items-center justify-between px-4 py-3">
-      <View className="flex-row items-center gap-3">
-        <Text className="text-3xl">{space.emoji}</Text>
-        <Text className="text-text-dark dark:text-text-dark-d text-lg font-display">
+    <View style={styles.row}>
+      <Pressable
+        onPress={onPressSpace}
+        style={styles.left}
+        accessibilityLabel="Đổi Space"
+        accessibilityRole="button"
+      >
+        <View style={[styles.emojiBox, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
+          <Text style={styles.emoji}>{space.emoji}</Text>
+        </View>
+        <Text style={[styles.name, { color: c.textDark }]} numberOfLines={1}>
           {space.name}
         </Text>
-      </View>
-      <View className="flex-row items-center gap-2">
-        <Pressable
-          onPress={() => router.push('/(app)/notifications' as never)}
-          className="min-h-[44px] min-w-[44px] items-center justify-center rounded-full"
-        >
-          <Text className="text-xl">🔔</Text>
-        </Pressable>
-        <Pressable
-          onPress={onInvitePress}
-          className="min-h-[44px] min-w-[44px] items-center justify-center px-3 rounded-pill bg-accent/10"
-        >
-          <Text className="text-accent text-sm font-body">+ Mời</Text>
-        </Pressable>
-      </View>
+        {onPressSpace ? <IconChevronRight size={18} color={c.textMid} /> : null}
+      </Pressable>
+
+      <Pressable
+        onPress={() => router.push('/(app)/notifications' as never)}
+        style={[styles.bellBtn, { backgroundColor: c.bg, ...shadow('raised', 'sm') }]}
+        accessibilityLabel="Thông báo"
+        accessibilityRole="button"
+      >
+        <IconBell size={20} color={c.textMid} />
+      </Pressable>
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  left: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+    minHeight: 44,
+  },
+  emojiBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emoji: { fontSize: 22 },
+  name: {
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.34,
+    flexShrink: 1,
+  },
+  bellBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.avatar,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+})

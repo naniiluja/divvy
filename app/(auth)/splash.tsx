@@ -6,6 +6,8 @@ import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
 import { LIGHT, DARK, RADIUS } from '@/constants/theme'
 import { DivvyMark } from '@/components/ui/DivvyMark'
+import { supabase } from '@/lib/supabase'
+import { getProfile, getSpacesForUser } from '@/lib/api'
 
 export default function SplashScreen() {
   const router = useRouter()
@@ -15,11 +17,34 @@ export default function SplashScreen() {
   const c = isDark ? DARK : LIGHT
 
   useEffect(() => {
-    const navigate = () => {
-      if (session) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        router.replace('/(app)/(tabs)/' as any)
-      } else {
+    const navigate = async () => {
+      if (!session?.user) {
+        router.replace('/(auth)/welcome')
+        return
+      }
+      const userId = session.user.id
+      try {
+        const { data: liveUser, error: liveErr } = await supabase.auth.getUser()
+        if (liveErr || !liveUser?.user) {
+          await supabase.auth.signOut()
+          router.replace('/(auth)/welcome')
+          return
+        }
+        const [profile, spaces] = await Promise.all([
+          getProfile(userId),
+          getSpacesForUser(userId),
+        ])
+        if (!profile) {
+          router.replace('/(auth)/profile-setup')
+          return
+        }
+        if (spaces.length === 0) {
+          router.replace('/(auth)/space-type')
+          return
+        }
+        router.replace('/(app)/(tabs)/' as never)
+      } catch {
+        await supabase.auth.signOut()
         router.replace('/(auth)/welcome')
       }
     }

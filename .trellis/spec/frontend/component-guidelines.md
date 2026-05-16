@@ -301,6 +301,55 @@ function IconToday({ color }: { color: string }) {
 
 Tham khảo exact SVG paths trong `screens-app.jsx` của design source (TabBar component).
 
+## Conditional Render Trap — Action Hidden in Sub-State
+
+### Common Mistake: Action button nested in a sub-state's condition
+
+**Symptom**: User reports "I can't find the + button anymore" after completing all tasks in a list.
+
+**Cause**: The "+ Task" header sits inside `{todoTasks.length > 0 && (...)}`. When all tasks become done, the entire header (including the button) disappears even though the user is still on a screen where adding tasks makes sense.
+
+```tsx
+// ❌ Wrong — button hidden when sub-state is empty
+{todoTasks.length > 0 && (
+  <>
+    <View style={styles.sectionRow}>
+      <Text>CẦN LÀM · {todoTasks.length}</Text>
+      <Pressable onPress={() => router.push('/(app)/task/new')}>
+        <Text>+ Task</Text>
+      </Pressable>
+    </View>
+    <View>{todoTasks.map(...)}</View>
+  </>
+)}
+
+{doneTasks.length > 0 && <View>{doneTasks.map(...)}</View>}
+// → If todoTasks.length === 0 but doneTasks.length > 0,
+//   user sees ONLY "ĐÃ XONG" with no way to add a new task.
+```
+
+**Fix**: Render the action at the parent-state level (whole-list scope), not nested under a sub-state condition.
+
+```tsx
+// ✅ Correct — button visible whenever any task exists
+{tasks.length > 0 && (
+  <View style={styles.sectionRow}>
+    <Text>{todoTasks.length > 0 ? `CẦN LÀM · ${todoTasks.length}` : `HÔM NAY · ${tasks.length}`}</Text>
+    <Pressable onPress={() => router.push('/(app)/task/new')}>
+      <Text>+ Task</Text>
+    </Pressable>
+  </View>
+)}
+
+{todoTasks.length > 0 && <View>{todoTasks.map(...)}</View>}
+{doneTasks.length > 0 && <View>{doneTasks.map(...)}</View>}
+{tasks.length === 0 && <EmptyState ... />}
+```
+
+**Prevention**: When deriving sub-arrays (`todoTasks`, `doneTasks`) from a parent (`tasks`), ask: "Does this action belong to the sub-state or the parent state?" Actions belong to the **largest scope** in which they remain meaningful.
+
+---
+
 ## Screen Layout Pattern (Auth)
 
 Tất cả auth screens theo cấu trúc này:

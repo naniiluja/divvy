@@ -11,7 +11,8 @@ interface TaskListProps {
   completions: TaskCompletion[]
   isLoading: boolean
   onTick: (taskId: string) => void
-  onSkip: (taskId: string) => void
+  onLongPress?: (task: Task) => void
+  onPress?: (task: Task) => void
 }
 
 export const TaskList: FC<TaskListProps> = ({
@@ -19,7 +20,8 @@ export const TaskList: FC<TaskListProps> = ({
   completions,
   isLoading,
   onTick,
-  onSkip,
+  onLongPress,
+  onPress,
 }) => {
   if (isLoading) {
     return (
@@ -54,7 +56,8 @@ export const TaskList: FC<TaskListProps> = ({
             task={item}
             lastCompletion={lastCompletion}
             onTick={onTick}
-            onSkip={onSkip}
+            onPress={onPress ? () => onPress(item) : undefined}
+            onLongPress={onLongPress ? () => onLongPress(item) : undefined}
           />
         )
       }}

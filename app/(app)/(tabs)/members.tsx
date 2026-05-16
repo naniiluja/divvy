@@ -35,12 +35,14 @@ export default function MembersScreen() {
     })
   }, [activeSpaceId])
 
-  const memberStats = members.map((m) => ({
-    ...m,
-    done7d: completions.filter((c) => c.completed_by === m.user_id && !c.is_skipped).length,
-    displayName: m.profiles?.display_name ?? m.user_id.slice(0, 6),
-    emoji: m.profiles?.avatar_emoji ?? '👤',
-  }))
+  const memberStats = members
+    .map((m) => ({
+      ...m,
+      done7d: completions.filter((c) => c.completed_by === m.user_id && !c.is_skipped).length,
+      displayName: m.profiles?.display_name ?? m.user_id.slice(0, 6),
+      emoji: m.profiles?.avatar_emoji ?? '👤',
+    }))
+    .sort((a, b) => b.done7d - a.done7d)
 
   const maxDone = Math.max(...memberStats.map((m) => m.done7d), 1)
 
@@ -111,6 +113,12 @@ export default function MembersScreen() {
               </View>
             </View>
           ))}
+          <Pressable
+            onPress={() => activeSpaceId && router.push(`/(app)/space/invite/${activeSpaceId}` as never)}
+            style={[styles.inviteCard, { borderColor: c.textLight }]}
+          >
+            <Text style={[styles.inviteCardText, { color: c.textMid }]}>+ Mời người mới</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -143,4 +151,13 @@ const styles = StyleSheet.create({
   memberCardName: { fontSize: 15, fontWeight: '700', letterSpacing: -0.15 },
   roleChip: { fontSize: 11, fontWeight: '600' },
   memberCardSub: { fontSize: 11, marginTop: 2 },
+  inviteCard: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+  },
+  inviteCardText: { fontSize: 13, fontWeight: '600' },
 })

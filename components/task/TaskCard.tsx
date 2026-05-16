@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
 import { LIGHT, DARK } from '@/constants/theme'
+import { IconRotate } from '@/components/ui/NIcons'
 import type { Task, TaskCompletion } from '@/types'
 
 const FREQ_LABEL: Record<string, string> = {
@@ -17,12 +18,14 @@ interface TaskCardProps {
   task: Task
   lastCompletion?: TaskCompletion | null
   onTick: (taskId: string) => void
-  onSkip: (taskId: string) => void
+  onPress?: () => void
+  onLongPress?: () => void
 }
 
-export const TaskCard: FC<TaskCardProps> = ({ task, lastCompletion, onTick, onSkip }) => {
+export const TaskCard: FC<TaskCardProps> = ({ task, lastCompletion, onTick, onPress, onLongPress }) => {
   const isDone = lastCompletion && !lastCompletion.is_skipped
   const isSkipped = lastCompletion?.is_skipped
+  const showRotate = task.frequency === '3x_week'
 
   const { shadow } = useNeumorphic()
   const { isDark } = useTheme()
@@ -35,7 +38,8 @@ export const TaskCard: FC<TaskCardProps> = ({ task, lastCompletion, onTick, onSk
 
   return (
     <Pressable
-      onLongPress={() => onSkip(task.id)}
+      onPress={onPress}
+      onLongPress={onLongPress}
       delayLongPress={400}
       style={[
         styles.card,
@@ -67,10 +71,13 @@ export const TaskCard: FC<TaskCardProps> = ({ task, lastCompletion, onTick, onSk
             ) : isSkipped ? (
               <Text style={[styles.metaText, { color: c.textMid }]}>Bỏ qua</Text>
             ) : (
-              <Text style={[styles.metaText, { color: c.textMid }]}>
-                {FREQ_LABEL[task.frequency] ?? task.frequency}
-                {task.assignee_id ? '' : ' · Ai cũng được'}
-              </Text>
+              <View style={styles.freqRow}>
+                {showRotate && <IconRotate size={11} color={c.textMid} />}
+                <Text style={[styles.metaText, { color: c.textMid }]}>
+                  {FREQ_LABEL[task.frequency] ?? task.frequency}
+                  {task.assignee_id ? '' : ' · Ai cũng được'}
+                </Text>
+              </View>
             )}
           </View>
         </View>
@@ -126,6 +133,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  freqRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaText: { fontSize: 11 },
   tickBtn: {
     width: 32,
