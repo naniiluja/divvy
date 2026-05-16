@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 1
+- **Total Sessions**: 2
 - **Last Active**: 2026-05-16
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~45 | Active |
+| `journal-1.md` | ~82 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 2 | 2026-05-16 | AI structured output + UI polish: navigation, member list, dark mode, spec updates | `2588ade`, `cfbdb3a`, `4016aa6`, `42a0a96`, `3150a4c` | `main` |
 | 1 | 2026-05-16 | Divvy Foundation: OAuth fix, createSpace refactor, quality check | `309c13b`, `1e89353`, `63066d4`, `b412c36`, `c43f469`, `c7f57ae` | `main` |
 <!-- @@@/auto:session-history -->
 

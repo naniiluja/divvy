@@ -43,3 +43,40 @@ Fixed Google OAuth URL handling and token parsing in sign-in flow. Propagated cr
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: AI structured output + UI polish: navigation, member list, dark mode, spec updates
+
+**Date**: 2026-05-16
+**Task**: AI structured output + UI polish: navigation, member list, dark mode, spec updates
+**Branch**: `main`
+
+### Summary
+
+MiniMax-M2.7 structured output via output_config -> tool_use -> prefill chain (edge fn v12). AI Generate refactor with spinner+steps matching onboarding. PostgREST FK gotcha fixed via 2-step getSpaceMembers. RLS recursion fixed via SECURITY DEFINER. Today screen +Task button always visible. dismissTo Today after AI save. Resolved main branch divergence with PR #1 merge.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2588ade` | (see git log) |
+| `cfbdb3a` | (see git log) |
+| `4016aa6` | (see git log) |
+| `42a0a96` | (see git log) |
+| `3150a4c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
