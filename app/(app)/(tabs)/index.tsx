@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Alert, View, Text, Pressable, StyleSheet, ScrollView } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 import { SpaceHeader } from '@/components/space/SpaceHeader'
@@ -46,26 +46,37 @@ export default function HomeScreen() {
 
   const today = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })
 
+  const loadData = useCallback(async (showLoading: boolean) => {
+    if (!activeSpaceId) return
+    if (showLoading) setIsLoading(true)
+    try {
+      const [spaceData, taskData, completionData] = await Promise.all([
+        getSpaceById(activeSpaceId),
+        getTasksForSpace(activeSpaceId),
+        getTodayCompletions(activeSpaceId),
+      ])
+      setSpace(spaceData); setTasks(taskData); setCompletions(completionData)
+    } catch (err) {
+      console.error('[home] loadData failed:', err)
+      Alert.alert('Lỗi', 'Không thể tải dữ liệu')
+    } finally {
+      if (showLoading) setIsLoading(false)
+    }
+  }, [activeSpaceId])
+
   useEffect(() => {
     if (!activeSpaceId || !userId) {
       setSpace(null); setTasks([]); setCompletions([])
       return
     }
-    setIsLoading(true)
-    Promise.all([
-      getSpaceById(activeSpaceId),
-      getTasksForSpace(activeSpaceId),
-      getTodayCompletions(activeSpaceId),
-    ])
-      .then(([spaceData, taskData, completionData]) => {
-        setSpace(spaceData); setTasks(taskData); setCompletions(completionData)
-      })
-      .catch(() => Alert.alert('Lỗi', 'Không thể tải dữ liệu'))
-      .finally(() => setIsLoading(false))
+    loadData(true)
 
-    channelRef.current?.unsubscribe()
-    channelRef.current = supabase
-      .channel(`home-${activeSpaceId}-completions`)
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current)
+      channelRef.current = null
+    }
+    const channel = supabase
+      .channel(`home-${activeSpaceId}-completions-${Date.now()}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'task_completions', filter: `space_id=eq.${activeSpaceId}` },
         (payload) => {
           const incoming = payload.new as TaskCompletion
@@ -75,9 +86,22 @@ export default function HomeScreen() {
           })
         })
       .subscribe()
+    channelRef.current = channel
 
-    return () => { channelRef.current?.unsubscribe() }
-  }, [activeSpaceId, userId])
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current)
+        channelRef.current = null
+      }
+    }
+  }, [activeSpaceId, userId, loadData])
+
+  // Refresh on focus — đảm bảo tasks mới (vừa tạo trong Add/AI flow) hiện ngay
+  useFocusEffect(
+    useCallback(() => {
+      if (activeSpaceId && userId) loadData(false)
+    }, [activeSpaceId, userId, loadData]),
+  )
 
   const handleTick = async (taskId: string) => {
     if (!activeSpaceId || !userId) return
@@ -154,30 +178,33 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
+            {tasks.length > 0 && (
+              <View style={styles.sectionRow}>
+                <Text style={[styles.sectionLabel, { color: c.textMid }]}>
+                  {todoTasks.length > 0 ? `CẦN LÀM · ${todoTasks.length}` : `HÔM NAY · ${tasks.length}`}
+                </Text>
+                <Pressable
+                  onPress={() => router.push('/(app)/task/new')}
+                  style={[styles.addBtn, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}
+                >
+                  <Text style={[styles.addBtnText, { color: c.textMid }]}>+ Task</Text>
+                </Pressable>
+              </View>
+            )}
+
             {todoTasks.length > 0 && (
-              <>
-                <View style={styles.sectionRow}>
-                  <Text style={[styles.sectionLabel, { color: c.textMid }]}>CẦN LÀM · {todoTasks.length}</Text>
-                  <Pressable
-                    onPress={() => router.push('/(app)/task/new')}
-                    style={[styles.addBtn, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}
-                  >
-                    <Text style={[styles.addBtnText, { color: c.textMid }]}>+ Task</Text>
-                  </Pressable>
-                </View>
-                <View style={styles.taskList}>
-                  {todoTasks.map((t) => (
-                    <TaskCard
-                      key={t.id}
-                      task={t}
-                      lastCompletion={completions.find((c) => c.task_id === t.id) ?? null}
-                      onTick={handleTick}
-                      onPress={() => router.push(`/(app)/task/${t.id}` as never)}
-                      onLongPress={() => setSkipFor(t)}
-                    />
-                  ))}
-                </View>
-              </>
+              <View style={styles.taskList}>
+                {todoTasks.map((t) => (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    lastCompletion={completions.find((c) => c.task_id === t.id) ?? null}
+                    onTick={handleTick}
+                    onPress={() => router.push(`/(app)/task/${t.id}` as never)}
+                    onLongPress={() => setSkipFor(t)}
+                  />
+                ))}
+              </View>
             )}
 
             {doneTasks.length > 0 && (
