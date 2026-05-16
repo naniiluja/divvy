@@ -109,7 +109,7 @@ export default function SpaceTypeScreen() {
 
         {/* Join existing */}
         <Pressable
-          onPress={() => router.push('/(auth)/create-space')}
+          onPress={() => router.push('/(auth)/join-space')}
           style={styles.joinBtn}
         >
           <Text style={[styles.joinText, { color: c.textMid }]}>

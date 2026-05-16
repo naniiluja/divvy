@@ -10,6 +10,11 @@ export default function AuthLayout() {
       <Stack.Screen name="profile-setup" />
       <Stack.Screen name="space-type" />
       <Stack.Screen name="create-space" />
+      <Stack.Screen name="join-space" />
+      <Stack.Screen name="ai-prompt" />
+      <Stack.Screen name="ai-review" />
+      <Stack.Screen name="notif-permission" />
+      <Stack.Screen name="done" />
     </Stack>
   )
 }
