@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 import Svg, { Path } from 'react-native-svg'
 import { NButton } from '@/components/ui/NButton'
+import { ShinyText } from '@/components/ui/ShinyText'
 import { useStore } from '@/stores'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
@@ -297,7 +298,13 @@ export default function AIGenerateScreen() {
         <View style={styles.loadingWrap}>
           <AISpinner c={c} shadow={shadow} />
           <View style={styles.loadTextBlock}>
-            <Text style={[styles.loadTitle, { color: c.textDark }]}>Claude đang chia việc…</Text>
+            <ShinyText
+              text="Claude đang chia việc…"
+              color={c.textDark}
+              shineColor="#ffffff"
+              speed={2}
+              textStyle={styles.loadTitle}
+            />
             <Text style={[styles.loadSub, { color: c.textMid }]}>
               Đang phân tích thói quen và chia đều cho {Math.max(members.length, 1)} người
             </Text>

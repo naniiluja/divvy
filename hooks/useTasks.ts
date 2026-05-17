@@ -42,6 +42,9 @@ export function useTasks(spaceId: string | null): {
             if (payload.eventType === 'INSERT') {
               return { ...prev, completions: [payload.new as TaskCompletion, ...prev.completions] }
             }
+            if (payload.eventType === 'DELETE') {
+              return { ...prev, completions: prev.completions.filter((c) => c.id !== payload.old.id) }
+            }
             return prev
           }, { revalidate: false })
         },
@@ -49,7 +52,7 @@ export function useTasks(spaceId: string | null): {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [spaceId])
+  }, [spaceId, mutate])
 
   function removeCompletion(completionId: string) {
     mutate((prev) => {

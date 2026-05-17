@@ -111,3 +111,41 @@ export function useAIGenerate() {
 - Hooks never navigate (`router.push`) — return data and let the screen decide.
 - Hooks never show alerts/toasts — throw errors upward for the UI to display.
 - All async operations in hooks wrapped in try/catch with typed error state.
+
+---
+
+## Critical Gotchas — Realtime + SWR
+
+### Gotcha: Realtime DELETE event không có `payload.old.id` theo mặc định
+
+> **Warning**: Supabase Realtime chỉ trả `payload.old` đầy đủ nếu table có `REPLICA IDENTITY FULL`. Mặc định chỉ có primary key trong `payload.old`, và đôi khi không có gì cả — dẫn đến DELETE handler chạy nhưng UI không update.
+
+```ts
+// ❌ Có thể bị lỗi nếu REPLICA IDENTITY chưa được set
+if (payload.eventType === 'DELETE') {
+  return { ...prev, completions: prev.completions.filter((c) => c.id !== payload.old.id) }
+}
+```
+
+**Fix**: Với `task_completions`, table đã được set `REPLICA IDENTITY FULL` nên pattern trên hoạt động. Nếu tạo bảng mới cần DELETE realtime, phải thêm migration:
+
+```sql
+ALTER TABLE <table_name> REPLICA IDENTITY FULL;
+```
+
+### Gotcha: Realtime DELETE không đủ — cần `globalMutate` sau write operations từ màn hình khác
+
+> **Warning**: Khi một màn hình khác (ví dụ task detail) thực hiện `deleteCompletion` rồi `router.back()`, Realtime event có thể đến sau khi màn hình home đã mount lại. Không thể dựa 100% vào Realtime để sync state.
+
+**Pattern chuẩn**: Sau mọi write operation trong screen khác, gọi `globalMutate` để invalidate SWR cache trước khi navigate:
+
+```ts
+import { mutate as globalMutate } from 'swr'
+
+// Trong screen detail sau khi tick/bỏ tick
+await deleteCompletion(todayCompletion.id)
+globalMutate(['tasks', task.space_id])  // ← invalidate trước khi back
+router.back()
+```
+
+SWR key phải khớp với key dùng trong `useTasks`: `['tasks', spaceId]`.

@@ -350,6 +350,91 @@ Tham khảo exact SVG paths trong `screens-app.jsx` của design source (TabBar 
 
 ---
 
+---
+
+## ShinyText — Animated Shimmer Text
+
+`components/ui/ShinyText` — text pulse animation dùng cho AI-related text (loading states, badges).
+
+```tsx
+import { ShinyText } from '@/components/ui/ShinyText'
+
+<ShinyText
+  text="Claude đang chia việc…"
+  color={c.textDark}
+  shineColor="#ffffff"
+  speed={2}
+  textStyle={styles.loadTitle}
+/>
+```
+
+**Props**:
+- `color` — màu chữ nền (dùng theme token, ví dụ `c.textDark`, `c.accent`)
+- `shineColor` — màu sáng lên (thường `"#ffffff"`)
+- `speed` — chu kỳ animation tính bằng giây (2 = nhanh, 3 = chậm)
+- `textStyle` — forward style vào `Animated.Text` (font, size, weight)
+
+**Dùng ở đâu**: Chỉ dùng cho AI-generated loading states và AI badge. Không dùng cho text thường.
+
+### Reanimated v4 — Gotchas Animation API
+
+> **Warning**: Reanimated v4 đổi nhiều API so với v3. Các lỗi phổ biến:
+
+#### Easing API
+
+```ts
+// ❌ Sai — không tồn tại trong v4
+Easing.inOutSine
+Easing.inOut(Easing.sine)  // "sine" không có, phải là "sin"
+
+// ✅ Đúng
+Easing.inOut(Easing.sin)
+Easing.inOut(Easing.quad)
+Easing.linear
+```
+
+#### Animation phải chạy trong useEffect, không phải render
+
+```ts
+// ❌ Sai — gọi trực tiếp trong render body
+const progress = useSharedValue(0)
+progress.value = withRepeat(withTiming(1, ...), -1)  // ← lỗi runtime
+
+// ✅ Đúng — wrap trong useEffect
+useEffect(() => {
+  progress.value = withRepeat(withTiming(1, ...), -1)
+}, [progress])
+```
+
+#### Props động trong useAnimatedStyle — dùng useSharedValue
+
+```ts
+// ❌ Sai — stale closure, props đổi nhưng animation không update
+const animatedStyle = useAnimatedStyle(() => ({
+  color: interpolateColor(progress.value, [0, 1], [color, shineColor]),  // color từ props
+}))
+
+// ✅ Đúng — bridge props qua shared value
+const colorFrom = useSharedValue(color)
+useEffect(() => { colorFrom.value = color }, [color])
+
+const animatedStyle = useAnimatedStyle(() => ({
+  color: interpolateColor(progress.value, [0, 1], [colorFrom.value, colorTo.value]),
+}))
+```
+
+### Native Modules cần Rebuild
+
+> **Warning**: Một số thư viện animation yêu cầu native module — chỉ hot-reload JS là không đủ.
+
+| Package | Cần rebuild? |
+|---|---|
+| `@react-native-masked-view/masked-view` | ✅ Cần `npx expo run:android` |
+| `react-native-reanimated` | ❌ Hot-reload được |
+| `expo-linear-gradient` | ❌ Hot-reload được |
+
+`@react-native-masked-view` cho phép gradient clip theo hình chữ (đúng như web `backgroundClip: text`), nhưng phải rebuild app sau khi install. Nếu không thể rebuild, dùng `interpolateColor` để tạo pulse effect thay thế.
+
 ## Screen Layout Pattern (Auth)
 
 Tất cả auth screens theo cấu trúc này:

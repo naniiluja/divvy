@@ -18,6 +18,7 @@ import {
   addCompletion,
   skipTask,
   deleteTask,
+  deleteCompletion,
 } from '@/lib/api'
 import type { Task, TaskCompletion, SpaceMember } from '@/types'
 
@@ -113,6 +114,14 @@ export default function TaskDetailScreen() {
 
   const grid = buildSevenDayGrid(completions)
   const lastDone = completions.find((c) => !c.is_skipped)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayCompletion = completions.find((c) => {
+    const t = new Date(c.completed_at)
+    t.setHours(0, 0, 0, 0)
+    return !c.is_skipped && t.getTime() === today.getTime()
+  })
+  const isDoneToday = todayCompletion != null
   const assignee = members.find((m) => m.user_id === task.assignee_id)
   const assigneeName = assignee?.profiles?.display_name ?? 'Ai cũng được'
   const assigneeEmoji = assignee?.profiles?.avatar_emoji ?? '✨'
@@ -122,10 +131,15 @@ export default function TaskDetailScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     setTicking(true)
     try {
-      await addCompletion(task.id, task.space_id, userId)
+      if (isDoneToday && todayCompletion) {
+        await deleteCompletion(todayCompletion.id)
+      } else {
+        await addCompletion(task.id, task.space_id, userId)
+      }
+      globalMutate(['tasks', task.space_id])
       router.back()
     } catch (err) {
-      Alert.alert('Lỗi', err instanceof Error ? err.message : 'Không thể tick task')
+      Alert.alert('Lỗi', err instanceof Error ? err.message : 'Không thể cập nhật task')
     } finally {
       setTicking(false)
     }
@@ -234,7 +248,12 @@ export default function TaskDetailScreen() {
           <Text style={[styles.ghostText, { color: c.textMid }]}>Mình bận</Text>
         </Pressable>
         <View style={{ flex: 1.3 }}>
-          <NButton label="Tick xong ✓" onPress={handleTick} isLoading={ticking} fullWidth />
+          <NButton
+            label={isDoneToday ? 'Bỏ tick ✗' : 'Tick xong ✓'}
+            onPress={handleTick}
+            isLoading={ticking}
+            fullWidth
+          />
         </View>
       </View>
 

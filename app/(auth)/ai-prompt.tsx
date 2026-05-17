@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 import { NHeader } from '@/components/ui/NHeader'
 import { NButton } from '@/components/ui/NButton'
+import { ShinyText } from '@/components/ui/ShinyText'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
 import { RADIUS } from '@/constants/theme'
@@ -40,7 +41,13 @@ export default function AIPromptScreen() {
 
         <View style={[styles.badge, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
           <Text style={styles.badgeEmoji}>✨</Text>
-          <Text style={[styles.badgeText, { color: c.accent }]}>Powered by Claude</Text>
+          <ShinyText
+            text="Powered by Claude"
+            color={c.accent}
+            shineColor="#ffffff"
+            speed={3}
+            textStyle={styles.badgeText}
+          />
         </View>
 
         <Text style={[styles.title, { color: c.textDark }]} numberOfLines={2}>

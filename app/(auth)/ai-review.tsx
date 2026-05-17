@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics'
 import Svg, { Path } from 'react-native-svg'
 import { NHeader } from '@/components/ui/NHeader'
 import { NButton } from '@/components/ui/NButton'
+import { ShinyText } from '@/components/ui/ShinyText'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
 import { RADIUS, type ThemeColors } from '@/constants/theme'
@@ -247,7 +248,13 @@ export default function AIReviewScreen() {
         <View style={styles.loadingWrap}>
           <AISpinner c={c} shadow={shadow} />
           <View style={styles.loadTextBlock}>
-            <Text style={[styles.loadTitle, { color: c.textDark }]}>Claude đang chia việc…</Text>
+            <ShinyText
+              text="Claude đang chia việc…"
+              color={c.textDark}
+              shineColor="#ffffff"
+              speed={2}
+              textStyle={styles.loadTitle}
+            />
             <Text style={[styles.loadSub, { color: c.textMid }]}>
               Đang phân tích thói quen và chia đều cho {Math.max(members.length, 1)} người
             </Text>
