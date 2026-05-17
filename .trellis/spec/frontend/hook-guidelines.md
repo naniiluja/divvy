@@ -14,56 +14,50 @@ interface HookResult<T> {
 
 No exceptions. Components should never receive `undefined` — use `null` for missing data.
 
-## useTasks — Realtime Pattern
+## SWR — Caching Pattern (Required for all data-fetching hooks)
 
-Supabase Realtime subscription must be cleaned up on unmount:
+All data-fetching hooks use `useSWR` instead of `useEffect + useState`. Global config is set in `lib/swrConfig.ts` and wired via `<SWRConfig>` in `app/_layout.tsx`.
+
+Key rules:
+- SWR key is always a tuple `[resource, id]` — e.g. `['tasks', spaceId]`
+- Use `null` key to conditionally skip fetch: `useSWR(spaceId ? ['tasks', spaceId] : null, fetcher)`
+- `revalidateOnFocus: false` globally — React Native has no visibilitychange event
+- Realtime handlers call `mutate(updaterFn, { revalidate: false })` to patch cache in-place (no re-fetch)
+- `supabase.removeChannel(channel)` must be called in `useEffect` cleanup — Realtime subscription lives separately from SWR fetch
+
+## useTasks — SWR + Realtime Pattern
 
 ```ts
-export function useTasks(spaceId: string) {
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+export function useTasks(spaceId: string | null) {
+  const { data, isLoading, error, mutate } = useSWR<TasksData>(
+    spaceId ? ['tasks', spaceId] : null,
+    async () => {
+      const tasks = await getTasksForSpace(spaceId!)
+      const completions = tasks.flatMap((t) => t.task_completions ?? [])
+      return { tasks, completions }
+    },
+  )
 
   useEffect(() => {
     if (!spaceId) return
-
-    setIsLoading(true)
-
-    // Initial fetch
-    supabase
-      .from('tasks')
-      .select('*, task_completions(*)')
-      .eq('space_id', spaceId)
-      .then(({ data, error }) => {
-        if (error) setError(new Error(error.message))
-        else setTasks(data ?? [])
-        setIsLoading(false)
-      })
-
-    // Realtime subscription
     const channel = supabase
-      .channel(`tasks:${spaceId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'task_completions',
-        filter: `space_id=eq.${spaceId}`,
-      }, () => {
-        // Re-fetch on any change — simpler than merging patches
-        supabase
-          .from('tasks')
-          .select('*, task_completions(*)')
-          .eq('space_id', spaceId)
-          .then(({ data }) => setTasks(data ?? []))
-      })
+      .channel(`task_completions:${spaceId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions', filter: `space_id=eq.${spaceId}` },
+        (payload) => {
+          mutate((prev) => {
+            if (!prev) return prev
+            if (payload.eventType === 'INSERT')
+              return { ...prev, completions: [payload.new as TaskCompletion, ...prev.completions] }
+            if (payload.eventType === 'DELETE')
+              return { ...prev, completions: prev.completions.filter((c) => c.id !== payload.old.id) }
+            return prev
+          }, { revalidate: false })
+        })
       .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [spaceId, mutate])
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [spaceId])
-
-  return { data: tasks, isLoading, error }
+  return { tasks: data?.tasks ?? [], completions: data?.completions ?? [], isLoading, error }
 }
 ```
 
@@ -73,10 +67,13 @@ Wraps `supabase.auth.getSession()` and listens to `onAuthStateChange`. Lives in 
 
 ```ts
 export function useSession() {
-  const session = useSessionStore((s) => s.session)
-  return { session, isAuthenticated: !!session }
+  const session = useStore((s) => s.session)
+  const isLoading = useStore((s) => s.isSessionLoading)
+  return { session, isLoading, isAuthenticated: !!session }
 }
 ```
+
+> Return shape must include `isLoading` — `app/(app)/_layout.tsx` depends on it to show splash before redirecting.
 
 ## useAIGenerate
 

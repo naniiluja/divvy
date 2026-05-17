@@ -15,11 +15,11 @@
 
 ## Store Structure (Slices Pattern)
 
-> **Zustand v5 breaking change:** `persist` middleware không tự lưu initial state nữa. Initial values được set qua `partialize` khi hydrate từ AsyncStorage — không cần gọi `setState` thêm cho các giá trị `null`/`undefined` mặc định.
+> **Zustand v5:** `StateCreator` phải có đủ 4 generic params: `StateCreator<BoundStore, [], [], SliceType>`. `persist` middleware không auto-save initial state — values được hydrate từ AsyncStorage qua `partialize`.
 
 ```ts
 // stores/index.ts
-import { create } from 'zustand'
+import { create, StateCreator } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createSessionSlice, SessionSlice } from './sessionSlice'
@@ -38,20 +38,26 @@ export const useStore = create<BoundStore>()(
     {
       name: 'divvy-store',
       storage: createJSONStorage(() => AsyncStorage),
+      version: 1,
       partialize: (state) => ({
-        // Persist only: session token and active space
-        // UiSlice fields intentionally excluded
         session: state.session,
         activeSpaceId: state.activeSpaceId,
       }),
     }
   )
 )
-
-// Zustand v5: nếu cần set giá trị dynamic lúc khởi động, phải gọi explicit:
-// useStore.setState({ activeSpaceId: loadedFromSomewhereElse })
-// Không đặt logic này trong initial state function của slice.
 ```
+
+```ts
+// stores/sessionSlice.ts — correct StateCreator typing
+export const createSessionSlice: StateCreator<BoundStore, [], [], SessionSlice> = (set) => ({
+  session: null,
+  setSession: (session) => set({ session }),
+  clearSession: () => set({ session: null }),
+})
+```
+
+Dynamic initial values set via `useStore.setState({ ... })` at boot — not inside slice initializer.
 
 ## Selector Pattern
 

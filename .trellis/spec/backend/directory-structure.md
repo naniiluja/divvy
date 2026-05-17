@@ -14,7 +14,7 @@ supabase/
 │   ├── reset-tasks/
 │   │   └── index.ts                  # Triggered by pg_cron, resets completions
 │   └── _shared/
-│       ├── cors.ts                   # CORS headers
+│       ├── cors.ts                   # CORS headers (fallback — prefer jsr:@supabase/supabase-js@2/cors)
 │       └── supabase-client.ts        # Shared Supabase admin client
 └── seed.sql                          # Dev seed data (not pushed to prod)
 ```
@@ -26,7 +26,7 @@ Each Edge Function is a single `index.ts` file in its own directory:
 ```ts
 // supabase/functions/generate-tasks/index.ts
 
-import { corsHeaders } from '../_shared/cors.ts'
+import { corsHeaders } from 'jsr:@supabase/supabase-js@2/cors'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import Anthropic from 'npm:@anthropic-ai/sdk@0.39'
 
