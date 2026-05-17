@@ -80,3 +80,37 @@ MiniMax-M2.7 structured output via output_config -> tool_use -> prefill chain (e
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Bug fixes: untick, counter, realtime + UX animations + remove frequency
+
+**Date**: 2026-05-17
+**Task**: Bug fixes: untick, counter, realtime + UX animations + remove frequency
+**Branch**: `main`
+
+### Summary
+
+Fixed 3 core bugs: untick blocked by guard clause, members counter using total tasks instead of user tasks, Realtime channel dedup error. Removed frequency field entirely from Task model and DB. Added pull-to-refresh on all 4 tabs, QR code on invite screen, tab enter animations, TaskCard fly animation on tick, animated ProgressRing and AnimatedBar. Fixed splash spinner, removed double loading screen. Code cleanup: extracted AnimatedBar component, created useRefresh/useTabEnter hooks, fixed ProgressRing animation cleanup gap.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8c74e82` | (see git log) |
+| `d7bc454` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
