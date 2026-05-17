@@ -2,7 +2,6 @@ import { Pressable, View, StyleSheet } from 'react-native'
 import type { FC } from 'react'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK } from '@/constants/theme'
 
 interface NToggleProps {
   value: boolean
@@ -12,8 +11,7 @@ interface NToggleProps {
 
 export const NToggle: FC<NToggleProps> = ({ value, onToggle, accessibilityLabel }) => {
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   return (
     <Pressable

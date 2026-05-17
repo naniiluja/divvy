@@ -5,12 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { NHeader } from '@/components/ui/NHeader'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import { useStore } from '@/stores'
 import { getRecentCompletions, getTasksForSpace, getSpaceMembers } from '@/lib/api'
-import type { TaskCompletion, SpaceMember } from '@/types'
-
-type MemberWithProfile = SpaceMember & { profiles?: { display_name?: string; avatar_emoji?: string } }
+import type { Task, TaskCompletion, SpaceMember } from '@/types'
 
 interface InboxEntry {
   id: string
@@ -45,10 +43,11 @@ export default function NotificationsScreen() {
   const userId = useStore((s) => s.user?.id)
   const activeSpaceId = useStore((s) => s.activeSpaceId)
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
-  const [entries, setEntries] = useState<InboxEntry[]>([])
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [completions, setCompletions] = useState<TaskCompletion[]>([])
+  const [members, setMembers] = useState<SpaceMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -62,32 +61,34 @@ export default function NotificationsScreen() {
       getTasksForSpace(activeSpaceId),
       getSpaceMembers(activeSpaceId),
     ])
-      .then(([completions, tasks, members]) => {
-        const tMap = new Map(tasks.map((t) => [t.id, t]))
-        const mMap = new Map((members as MemberWithProfile[]).map((m) => [m.user_id, m]))
-        const items: InboxEntry[] = completions
-          .filter((c: TaskCompletion) => !c.is_skipped)
-          .map((c: TaskCompletion) => {
-            const task = tMap.get(c.task_id)
-            const actor = mMap.get(c.completed_by)
-            const actorName = actor?.profiles?.display_name ?? 'Ai đó'
-            const actorEmoji = actor?.profiles?.avatar_emoji ?? '👤'
-            const isMine = c.completed_by === userId
-            return {
-              id: c.id,
-              emoji: task?.icon ?? '📋',
-              title: isMine
-                ? `Bạn vừa tick xong`
-                : `${actorEmoji} ${actorName} vừa tick xong`,
-              body: task ? `${task.icon} ${task.name}` : 'Task',
-              time: new Date(c.completed_at),
-              isMine,
-            }
-          })
-        setEntries(items)
+      .then(([nextCompletions, nextTasks, nextMembers]) => {
+        setCompletions(nextCompletions)
+        setTasks(nextTasks)
+        setMembers(nextMembers)
       })
       .finally(() => setIsLoading(false))
   }, [activeSpaceId, userId])
+
+  const tasksById = new Map(tasks.map((t) => [t.id, t]))
+  const membersById = new Map(members.map((m) => [m.user_id, m]))
+
+  const entries: InboxEntry[] = completions
+    .filter((c) => !c.is_skipped)
+    .map((c) => {
+      const task = tasksById.get(c.task_id)
+      const actor = membersById.get(c.completed_by)
+      const actorName = actor?.profiles?.display_name ?? 'Ai đó'
+      const actorEmoji = actor?.profiles?.avatar_emoji ?? '👤'
+      const isMine = c.completed_by === userId
+      return {
+        id: c.id,
+        emoji: task?.icon ?? '📋',
+        title: isMine ? 'Bạn vừa tick xong' : `${actorEmoji} ${actorName} vừa tick xong`,
+        body: task ? `${task.icon} ${task.name}` : 'Task',
+        time: new Date(c.completed_at),
+        isMine,
+      }
+    })
 
   const grouped: Record<string, InboxEntry[]> = {}
   for (const e of entries) {

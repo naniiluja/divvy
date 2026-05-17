@@ -31,12 +31,12 @@ module.exports = {
           'mid-d': '#9DA5C2',
           'light-d': '#5C6584',
         },
-        // Accent
-        accent: '#6C7CFF',
+        // Accent — dynamic via CSS variable (set by ThemedApp in _layout.tsx)
+        accent: 'var(--color-accent)',
         accent2: '#A78BFA',
         // Brand tokens (for shared components)
         brand: {
-          primary: '#6C7CFF',
+          primary: 'var(--color-accent)',
           secondary: '#A78BFA',
         },
         surface: {

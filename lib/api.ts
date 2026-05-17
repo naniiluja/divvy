@@ -90,9 +90,7 @@ export async function getSpaceMembers(spaceId: string): Promise<SpaceMember[]> {
     .select('*')
     .eq('space_id', spaceId)
 
-  if (memberErr || !memberRows?.length) {
-    return []
-  }
+  if (memberErr || !memberRows?.length) return []
 
   const userIds = memberRows.map((m) => m.user_id)
   const { data: profileRows, error: profErr } = await supabase
@@ -100,20 +98,18 @@ export async function getSpaceMembers(spaceId: string): Promise<SpaceMember[]> {
     .select('id, display_name, avatar_emoji')
     .in('id', userIds)
 
-  if (profErr) {
-    return memberRows as SpaceMember[]
-  }
+  if (profErr) return memberRows as SpaceMember[]
 
   const profileMap = new Map(profileRows?.map((p) => [p.id, p]) ?? [])
-  return memberRows.map((m) => ({
-    ...m,
-    profiles: profileMap.has(m.user_id)
-      ? {
-          display_name: profileMap.get(m.user_id)?.display_name ?? '',
-          avatar_emoji: profileMap.get(m.user_id)?.avatar_emoji ?? '',
-        }
-      : undefined,
-  })) as SpaceMember[]
+  return memberRows.map((m) => {
+    const profile = profileMap.get(m.user_id)
+    return {
+      ...m,
+      profiles: profile
+        ? { display_name: profile.display_name ?? '', avatar_emoji: profile.avatar_emoji ?? '' }
+        : undefined,
+    }
+  }) as SpaceMember[]
 }
 
 export async function getOrCreateInviteLink(spaceId: string, createdBy: string): Promise<InviteLink> {
@@ -166,19 +162,38 @@ export async function getTaskById(taskId: string): Promise<Task | null> {
   return data as Task
 }
 
-export async function getCompletionsForTask(taskId: string, days = 7): Promise<TaskCompletion[]> {
+function daysAgoISO(days: number): string {
   const since = new Date()
   since.setDate(since.getDate() - days)
+  return since.toISOString()
+}
 
+function startOfTodayISO(): string {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}T00:00:00`
+}
+
+async function fetchCompletionsSince(
+  field: 'task_id' | 'space_id',
+  value: string,
+  sinceISO: string,
+): Promise<TaskCompletion[]> {
   const { data, error } = await supabase
     .from('task_completions')
     .select('*')
-    .eq('task_id', taskId)
-    .gte('completed_at', since.toISOString())
+    .eq(field, value)
+    .gte('completed_at', sinceISO)
     .order('completed_at', { ascending: false })
 
   if (error) return []
   return (data as TaskCompletion[]) ?? []
+}
+
+export async function getCompletionsForTask(taskId: string, days = 7): Promise<TaskCompletion[]> {
+  return fetchCompletionsSince('task_id', taskId, daysAgoISO(days))
 }
 
 export async function getTasksForSpace(spaceId: string): Promise<Task[]> {
@@ -193,43 +208,28 @@ export async function getTasksForSpace(spaceId: string): Promise<Task[]> {
 }
 
 export async function getRecentCompletions(spaceId: string, days = 7): Promise<TaskCompletion[]> {
-  const since = new Date()
-  since.setDate(since.getDate() - days)
-
-  const { data, error } = await supabase
-    .from('task_completions')
-    .select('*')
-    .eq('space_id', spaceId)
-    .gte('completed_at', since.toISOString())
-    .order('completed_at', { ascending: false })
-
-  if (error) return []
-  return (data as TaskCompletion[]) ?? []
+  return fetchCompletionsSince('space_id', spaceId, daysAgoISO(days))
 }
 
 export async function getTodayCompletions(spaceId: string): Promise<TaskCompletion[]> {
-  const startOfDay = new Date()
-  startOfDay.setHours(0, 0, 0, 0)
-
-  const { data, error } = await supabase
-    .from('task_completions')
-    .select('*')
-    .eq('space_id', spaceId)
-    .gte('completed_at', startOfDay.toISOString())
-    .order('completed_at', { ascending: false })
-
-  if (error) return []
-  return (data as TaskCompletion[]) ?? []
+  return fetchCompletionsSince('space_id', spaceId, startOfTodayISO())
 }
 
-export async function addCompletion(
+async function insertCompletion(
   taskId: string,
   spaceId: string,
   userId: string,
+  isSkipped: boolean,
 ): Promise<TaskCompletion> {
   const { data, error } = await supabase
     .from('task_completions')
-    .insert({ task_id: taskId, space_id: spaceId, user_id: userId, completed_by: userId, is_skipped: false })
+    .insert({
+      task_id: taskId,
+      space_id: spaceId,
+      user_id: userId,
+      completed_by: userId,
+      is_skipped: isSkipped,
+    })
     .select()
     .single()
 
@@ -237,19 +237,22 @@ export async function addCompletion(
   return data as TaskCompletion
 }
 
-export async function skipTask(
-  taskId: string,
-  spaceId: string,
-  userId: string,
-): Promise<TaskCompletion> {
-  const { data, error } = await supabase
-    .from('task_completions')
-    .insert({ task_id: taskId, space_id: spaceId, user_id: userId, completed_by: userId, is_skipped: true })
-    .select()
-    .single()
+export function addCompletion(taskId: string, spaceId: string, userId: string): Promise<TaskCompletion> {
+  return insertCompletion(taskId, spaceId, userId, false)
+}
 
+export function skipTask(taskId: string, spaceId: string, userId: string): Promise<TaskCompletion> {
+  return insertCompletion(taskId, spaceId, userId, true)
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+  const { error } = await supabase.from('tasks').delete().eq('id', taskId)
   if (error) throw error
-  return data as TaskCompletion
+}
+
+export async function deleteCompletion(completionId: string): Promise<void> {
+  const { error } = await supabase.from('task_completions').delete().eq('id', completionId)
+  if (error) throw error
 }
 
 export async function getSpaceById(spaceId: string): Promise<Space | null> {
@@ -266,8 +269,27 @@ export async function getSpaceById(spaceId: string): Promise<Space | null> {
 export interface GeneratedTask {
   name: string
   icon: string
-  frequency: 'daily' | 'weekly' | '3x_week'
   assignee_display_name: string | null
+}
+
+// FunctionsHttpError exposes the response body via `error.context` (a Response).
+// We unwrap it to surface the actual server-side message rather than a generic "non-2xx".
+async function unwrapFunctionError(error: { message: string; context?: Response }): Promise<string> {
+  const ctx = error.context
+  if (!ctx || typeof ctx.text !== 'function') return error.message
+
+  try {
+    const bodyText = await ctx.clone().text()
+    if (!bodyText) return error.message
+    try {
+      const parsed = JSON.parse(bodyText) as { error?: string; message?: string }
+      return parsed.error ?? parsed.message ?? bodyText
+    } catch {
+      return bodyText
+    }
+  } catch {
+    return error.message
+  }
 }
 
 export async function callGenerateTasks(
@@ -282,24 +304,7 @@ export async function callGenerateTasks(
   })
 
   if (error) {
-    // FunctionsHttpError exposes the response body via error.context
-    let detail = error.message
-    try {
-      const ctx = (error as { context?: Response }).context
-      if (ctx && typeof ctx.text === 'function') {
-        const bodyText = await ctx.clone().text()
-        if (bodyText) {
-          try {
-            const parsed = JSON.parse(bodyText)
-            detail = parsed.error ?? parsed.message ?? bodyText
-          } catch {
-            detail = bodyText
-          }
-        }
-      }
-    } catch {
-      // ignore unwrap failures
-    }
+    const detail = await unwrapFunctionError(error as { message: string; context?: Response })
     throw new Error(detail)
   }
   if (data?.error) throw new Error(data.error)

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { mutate as globalMutate } from 'swr'
 import { View, Text, Pressable, ScrollView, StyleSheet, Alert, ActivityIndicator } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -8,7 +9,7 @@ import { NButton } from '@/components/ui/NButton'
 import { SkipCoverSheet } from '@/components/task/SkipCoverSheet'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import { useStore } from '@/stores'
 import {
   getTaskById,
@@ -16,16 +17,9 @@ import {
   getSpaceMembers,
   addCompletion,
   skipTask,
+  deleteTask,
 } from '@/lib/api'
 import type { Task, TaskCompletion, SpaceMember } from '@/types'
-
-type MemberWithProfile = SpaceMember & { profiles?: { display_name?: string; avatar_emoji?: string } }
-
-const FREQ_LABEL: Record<string, string> = {
-  daily: 'Hằng ngày',
-  weekly: 'Hằng tuần',
-  '3x_week': '3 lần/tuần',
-}
 
 const DAY_LABEL = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
 
@@ -50,23 +44,13 @@ function buildSevenDayGrid(completions: TaskCompletion[]) {
   return grid
 }
 
-function nextDateLabel(task: Task, lastDone?: TaskCompletion) {
+function nextDateLabel(lastDone?: TaskCompletion) {
   if (!lastDone) return 'Hôm nay'
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
   const last = new Date(lastDone.completed_at)
-  if (task.frequency === 'daily') {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    if (last.getTime() < today.getTime()) return 'Hôm nay'
-    const tmr = new Date(today)
-    tmr.setDate(tmr.getDate() + 1)
-    return `Ngày mai · ${tmr.toLocaleDateString('vi-VN', { day: 'numeric', month: 'numeric' })}`
-  }
-  if (task.frequency === 'weekly') {
-    const target = new Date(last)
-    target.setDate(target.getDate() + 7)
-    return `${DAY_LABEL[target.getDay()]} · ${target.toLocaleDateString('vi-VN', { day: 'numeric', month: 'numeric' })}`
-  }
-  return 'Mỗi 2-3 ngày'
+  if (last.getTime() < today.getTime()) return 'Hôm nay'
+  return 'Đã xong hôm nay'
 }
 
 export default function TaskDetailScreen() {
@@ -74,32 +58,29 @@ export default function TaskDetailScreen() {
   const { id: taskId } = useLocalSearchParams<{ id: string }>()
   const userId = useStore((s) => s.user?.id)
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const [task, setTask] = useState<Task | null>(null)
   const [completions, setCompletions] = useState<TaskCompletion[]>([])
-  const [members, setMembers] = useState<MemberWithProfile[]>([])
+  const [members, setMembers] = useState<SpaceMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [skipping, setSkipping] = useState(false)
   const [ticking, setTicking] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (!taskId) return
     setIsLoading(true)
     getTaskById(taskId)
       .then(async (t) => {
-        if (!t) {
-          setIsLoading(false)
-          return
-        }
+        if (!t) return
         setTask(t)
         const [comp, mem] = await Promise.all([
           getCompletionsForTask(t.id, 7),
           getSpaceMembers(t.space_id),
         ])
         setCompletions(comp)
-        setMembers(mem as MemberWithProfile[])
+        setMembers(mem)
       })
       .finally(() => setIsLoading(false))
   }, [taskId])
@@ -150,6 +131,34 @@ export default function TaskDetailScreen() {
     }
   }
 
+  const handleDelete = () => {
+    Alert.alert(
+      'Xóa task',
+      `Bạn có chắc muốn xóa "${task?.name}"? Hành động này không thể hoàn tác.`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: async () => {
+            if (!task) return
+            setDeleting(true)
+            try {
+              await deleteTask(task.id)
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+              globalMutate(['tasks', task.space_id])
+              router.back()
+            } catch (err) {
+              Alert.alert('Lỗi', err instanceof Error ? err.message : 'Không thể xóa task')
+            } finally {
+              setDeleting(false)
+            }
+          },
+        },
+      ],
+    )
+  }
+
   const handleSkip = async (id: string) => {
     if (!userId) return
     try {
@@ -165,10 +174,12 @@ export default function TaskDetailScreen() {
       <View style={styles.headerRow}>
         <NHeader step={0} total={0} onBack={() => router.back()} />
         <Pressable
-          onPress={() => Alert.alert('Coming soon', 'Sửa task sẽ được thêm ở v1.1.')}
+          accessibilityLabel="Xóa task"
+          onPress={handleDelete}
+          disabled={deleting}
           style={[styles.editBtn, { backgroundColor: c.bg, ...shadow('raised', 'sm') }]}
         >
-          <Text style={{ fontSize: 18 }}>✏</Text>
+          <Text style={{ fontSize: 18 }}>{deleting ? '…' : '🗑'}</Text>
         </Pressable>
       </View>
 
@@ -179,11 +190,6 @@ export default function TaskDetailScreen() {
 
         <Text style={[styles.title, { color: c.textDark }]}>{task.name}</Text>
 
-        <View style={[styles.freqPill, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
-          <Text style={[styles.freqPillText, { color: c.accent }]}>
-            {FREQ_LABEL[task.frequency] ?? task.frequency}
-          </Text>
-        </View>
 
         <View style={styles.tiles}>
           <View style={[styles.tile, { backgroundColor: c.bg, ...shadow('raised', 'sm') }]}>
@@ -195,16 +201,16 @@ export default function TaskDetailScreen() {
           <View style={[styles.tile, { backgroundColor: c.bg, ...shadow('raised', 'sm') }]}>
             <Text style={[styles.tileLabel, { color: c.textMid }]}>TIẾP THEO</Text>
             <Text style={[styles.tileValue, { color: c.textDark }]} numberOfLines={1}>
-              {nextDateLabel(task, lastDone)}
+              {nextDateLabel(lastDone)}
             </Text>
           </View>
         </View>
 
         <Text style={[styles.sectionLabel, { color: c.textMid }]}>LỊCH SỬ 7 NGÀY</Text>
         <View style={styles.daysRow}>
-          {grid.map((d, i) => (
+          {grid.map((d) => (
             <View
-              key={i}
+              key={d.date.toDateString()}
               style={[
                 styles.dayTile,
                 { backgroundColor: c.bg },

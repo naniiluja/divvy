@@ -3,7 +3,7 @@ import type { FC } from 'react'
 import * as Haptics from 'expo-haptics'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 
 export type NButtonVariant = 'accent' | 'ghost'
 export type NButtonSize = 'lg' | 'md' | 'sm'
@@ -31,8 +31,7 @@ export const NButton: FC<NButtonProps> = ({
   fullWidth = false,
 }) => {
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const handlePress = () => {
     if (isDisabled || isLoading) return

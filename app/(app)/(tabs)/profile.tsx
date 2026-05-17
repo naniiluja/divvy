@@ -1,17 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { View, Text, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator, RefreshControl } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
+import { useRouter, useFocusEffect } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { useStore } from '@/stores'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { useSpace } from '@/hooks/useSpace'
+import { useRefresh } from '@/hooks/useRefresh'
+import { RADIUS } from '@/constants/theme'
 import { NToggle } from '@/components/ui/NToggle'
-import { getSpacesForUser, getRecentCompletions } from '@/lib/api'
+import { getProfile, getRecentCompletions } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
-import type { Space, TaskCompletion } from '@/types'
+import { ACCENT_COLORS, type AccentKey } from '@/stores/uiSlice'
+import { FlameView } from '@/components/ui/FlameView'
+import type { Profile, TaskCompletion } from '@/types'
 
 function SettingsRow({
   icon,
@@ -35,8 +39,7 @@ function SettingsRow({
   danger?: boolean
 }) {
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   return (
     <Pressable
@@ -72,8 +75,9 @@ function StatTile({
   accent?: boolean
 }) {
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
+
+  const streakNum = accent ? value.replace('d 🔥', 'd') : value
 
   return (
     <View
@@ -84,7 +88,12 @@ function StatTile({
       ]}
     >
       <Text style={[styles.statLabel, { color: c.textMid }]}>{label}</Text>
-      <Text style={[styles.statValue, { color: accent ? c.accent : c.textDark }]}>{value}</Text>
+      <View style={styles.statValueRow}>
+        <Text style={[styles.statValue, { color: accent ? c.accent : c.textDark }]}>
+          {accent ? streakNum : value}
+        </Text>
+        {accent && <FlameView size={28} />}
+      </View>
       <Text style={[styles.statSub, { color: c.textMid }]}>{sub}</Text>
     </View>
   )
@@ -92,8 +101,7 @@ function StatTile({
 
 function SectionCard({ children }: { children: ReactNode }) {
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   return (
     <View style={[styles.sectionCard, { backgroundColor: c.bg, ...shadow('raised', 'sm') }]}>
@@ -102,57 +110,94 @@ function SectionCard({ children }: { children: ReactNode }) {
   )
 }
 
+function computeStreak(completions: TaskCompletion[]): number {
+  const activeKeys = new Set(completions.map((c) => new Date(c.completed_at).toDateString()))
+  const cursor = new Date()
+  cursor.setHours(0, 0, 0, 0)
+  if (!activeKeys.has(cursor.toDateString())) {
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  let streak = 0
+  while (activeKeys.has(cursor.toDateString())) {
+    streak += 1
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
+}
+
 export default function ProfileScreen() {
   const router = useRouter()
   const user = useStore((s) => s.user)
   const clearSession = useStore((s) => s.clearSession)
   const activeSpaceId = useStore((s) => s.activeSpaceId)
   const setThemeOverride = useStore((s) => s.setThemeOverride)
+  const accentKey = useStore((s) => s.accentKey)
+  const setAccentKey = useStore((s) => s.setAccentKey)
 
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { isDark, c } = useTheme()
+  const { spaces } = useSpace()
 
-  const [spaces, setSpaces] = useState<Space[]>([])
-  const [completionsCount, setCompletionsCount] = useState(0)
-  const [streak, setStreak] = useState(0)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [myCompletions, setMyCompletions] = useState<TaskCompletion[]>([])
   const [statsLoading, setStatsLoading] = useState(false)
 
   const [notifTask, setNotifTask] = useState(true)
   const [notifOverdue, setNotifOverdue] = useState(true)
   const [notifCover, setNotifCover] = useState(false)
 
-  useEffect(() => {
+  const loadStats = useCallback(() => {
     if (!user?.id) return
     setStatsLoading(true)
     const promises: Promise<void>[] = [
-      getSpacesForUser(user.id).then(setSpaces),
+      getProfile(user.id).then((p) => { if (p) setProfile(p) }),
     ]
     if (activeSpaceId) {
       promises.push(
-        getRecentCompletions(activeSpaceId, 30).then((data: TaskCompletion[]) => {
-          const myDone = data.filter((c) => c.completed_by === user.id && !c.is_skipped)
-          setCompletionsCount(myDone.length)
-
-          const activeKeys = new Set(
-            myDone.map((c) => new Date(c.completed_at).toDateString()),
-          )
-          let s = 0
-          const cursor = new Date()
-          cursor.setHours(0, 0, 0, 0)
-          while (activeKeys.has(cursor.toDateString())) {
-            s += 1
-            cursor.setDate(cursor.getDate() - 1)
-          }
-          setStreak(s)
+        getRecentCompletions(activeSpaceId, 30).then((data) => {
+          setMyCompletions(data.filter((c) => c.completed_by === user.id && !c.is_skipped))
         }),
       )
+    } else {
+      setMyCompletions([])
     }
     Promise.all(promises).finally(() => setStatsLoading(false))
   }, [user?.id, activeSpaceId])
 
-  const displayName = (user?.user_metadata?.display_name as string | undefined) ?? 'Bạn'
-  const avatarEmoji = (user?.user_metadata?.avatar_emoji as string | undefined) ?? '🌸'
+  useFocusEffect(useCallback(() => { loadStats() }, [loadStats]))
+
+  const { refreshing, handleRefresh } = useRefresh(loadStats)
+
+  useEffect(() => {
+    if (!activeSpaceId || !user?.id) return
+    const userId = user.id
+    const channel = supabase
+      .channel(`profile_completions:${activeSpaceId}:${Date.now()}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'task_completions', filter: `space_id=eq.${activeSpaceId}` },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const c = payload.new as TaskCompletion
+            if (c.completed_by === userId && !c.is_skipped) {
+              setMyCompletions((prev) => [c, ...prev])
+            }
+          }
+          if (payload.eventType === 'DELETE') {
+            const deleted = payload.old as { id: string }
+            setMyCompletions((prev) => prev.filter((c) => c.id !== deleted.id))
+          }
+        },
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [activeSpaceId, user?.id])
+
+  const completionsCount = myCompletions.length
+  const streak = computeStreak(myCompletions)
+
+  const displayName = profile?.display_name || 'Bạn'
+  const avatarEmoji = profile?.avatar_emoji || '🌸'
   const phoneOrEmail = user?.phone ?? user?.email ?? ''
 
   const handleToggle = (setter: (fn: (v: boolean) => boolean) => void) => {
@@ -185,6 +230,7 @@ export default function ProfileScreen() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.accent} />}
       >
         <Text style={[styles.title, { color: c.textDark }]}>Bạn</Text>
         <Text style={[styles.subtitle, { color: c.textMid }]}>Hồ sơ, thông báo và tài khoản.</Text>
@@ -284,12 +330,35 @@ export default function ProfileScreen() {
             }}
           />
           <View style={[styles.rowDivider, { backgroundColor: c.bg2 }]} />
-          <SettingsRow
-            icon="🎨"
-            label="Màu nhấn"
-            sub="Tím mặc định"
-            chevron
-          />
+          <View style={styles.settingsRow}>
+            <View style={[styles.iconBox, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
+              <Text style={styles.iconBoxText}>🎨</Text>
+            </View>
+            <View style={styles.settingsRowContent}>
+              <Text style={[styles.settingsLabel, { color: c.textDark }]}>Màu nhấn</Text>
+              <View style={styles.accentRow}>
+                {(Object.entries(ACCENT_COLORS) as [AccentKey, string][]).map(([key, hex]) => (
+                  <Pressable
+                    key={key}
+                    accessibilityLabel={`Chọn màu ${key}`}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                      setAccentKey(key)
+                    }}
+                    style={[
+                      styles.accentDot,
+                      { backgroundColor: hex },
+                      accentKey === key && styles.accentDotActive,
+                    ]}
+                  >
+                    {accentKey === key && (
+                      <Text style={styles.accentCheck}>✓</Text>
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          </View>
         </SectionCard>
 
         <Text style={[styles.sectionTitle, { color: c.textMid }]}>TÀI KHOẢN</Text>
@@ -394,7 +463,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textTransform: 'uppercase',
   },
+  statValueRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 2 },
   statValue: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+  statFlame: { fontSize: 18, lineHeight: 24 },
   statSub: { fontSize: 9, textAlign: 'center' },
 
   sectionTitle: {
@@ -434,6 +505,27 @@ const styles = StyleSheet.create({
   settingsSub: { fontSize: 11, marginTop: 1 },
   chevron: { fontSize: 22, fontWeight: '300', marginRight: 2 },
 
+  accentRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  accentDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accentDotActive: {
+    borderWidth: 2.5,
+    borderColor: 'rgba(255,255,255,0.8)',
+  },
+  accentCheck: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
   signOutBtn: {
     borderRadius: RADIUS.pill,
     paddingVertical: 14,

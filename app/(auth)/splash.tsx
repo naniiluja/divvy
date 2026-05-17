@@ -1,10 +1,10 @@
-import { useEffect } from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { useEffect, useRef } from 'react'
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSession } from '@/hooks/useSession'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import { DivvyMark } from '@/components/ui/DivvyMark'
 import { supabase } from '@/lib/supabase'
 import { getProfile, getSpacesForUser } from '@/lib/api'
@@ -13,8 +13,7 @@ export default function SplashScreen() {
   const router = useRouter()
   const { session, isLoading } = useSession()
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   useEffect(() => {
     const navigate = async () => {
@@ -61,6 +60,18 @@ export default function SplashScreen() {
   }, [isLoading, session, router])
 
   const insetSm = shadow('inset', 'sm')
+  const spinAnim = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(spinAnim, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    ).start()
+  }, [])
 
   return (
     <View style={[styles.screen, { backgroundColor: c.bg }]}>
@@ -78,9 +89,14 @@ export default function SplashScreen() {
       </View>
 
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 56 }}>
-        {/* Spinner wrapped in inset circle */}
         <View style={[styles.spinnerWrap, { backgroundColor: c.bg, ...insetSm }]}>
-          <View style={[styles.spinner, { borderTopColor: c.accent, borderRightColor: c.accent }]} />
+          <Animated.View
+            style={[
+              styles.spinner,
+              { borderTopColor: c.accent, borderRightColor: c.accent },
+              { transform: [{ rotate: spinAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] },
+            ]}
+          />
         </View>
       </View>
     </View>

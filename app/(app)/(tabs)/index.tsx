@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Alert, View, Text, Pressable, StyleSheet, ScrollView } from 'react-native'
-import { useFocusEffect, useRouter } from 'expo-router'
+import { useEffect, useRef, useState } from 'react'
+import { Alert, View, Text, Pressable, StyleSheet, ScrollView, Animated, RefreshControl } from 'react-native'
+import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 import { SpaceHeader } from '@/components/space/SpaceHeader'
@@ -11,102 +11,58 @@ import { TaskCardSkeleton } from '@/components/ui/Skeleton'
 import { ProgressRing } from '@/components/ui/ProgressRing'
 import { EmptyState } from '@/components/layout/EmptyState'
 import { useStore } from '@/stores'
-import { supabase } from '@/lib/supabase'
-import {
-  getSpaceById,
-  getTasksForSpace,
-  getTodayCompletions,
-  addCompletion,
-  skipTask,
-} from '@/lib/api'
+import { getProfile, addCompletion, skipTask, deleteCompletion } from '@/lib/api'
+import { useTasks } from '@/hooks/useTasks'
+import { useSpace } from '@/hooks/useSpace'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
-import type { Space, Task, TaskCompletion } from '@/types'
-import type { RealtimeChannel } from '@supabase/supabase-js'
+import { useTabEnter } from '@/hooks/useTabEnter'
+import { useRefresh } from '@/hooks/useRefresh'
+import { RADIUS } from '@/constants/theme'
+import type { Profile } from '@/types'
 
 export default function HomeScreen() {
   const router = useRouter()
   const activeSpaceId = useStore((s) => s.activeSpaceId)
   const userId = useStore((s) => s.user?.id)
-  const userProfile = useStore((s) => s.user)
+  const toast = useStore((s) => s.toast)
+  const clearToast = useStore((s) => s.clearToast)
 
-  const [space, setSpace] = useState<Space | null>(null)
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [completions, setCompletions] = useState<TaskCompletion[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [switcherOpen, setSwitcherOpen] = useState(false)
-  const [skipFor, setSkipFor] = useState<Task | null>(null)
+  const [skipFor, setSkipFor] = useState<string | null>(null)
 
-  const channelRef = useRef<RealtimeChannel | null>(null)
-
+  const toastAnim = useRef(new Animated.Value(0)).current
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
+  const enter = useTabEnter()
+
+  const { tasks, completions, isLoading, removeCompletion, refresh } = useTasks(activeSpaceId)
+  const { refreshing, handleRefresh } = useRefresh(refresh)
+  const { spaces } = useSpace()
+  const space = spaces.find((s) => s.id === activeSpaceId) ?? null
+
+  useEffect(() => {
+    if (!toast) return
+    Animated.sequence([
+      Animated.timing(toastAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.delay(2000),
+      Animated.timing(toastAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
+    ]).start(() => clearToast())
+  }, [toast])
+
+  useEffect(() => {
+    if (!userId) {
+      setProfile(null)
+      return
+    }
+    getProfile(userId).then((p) => { if (p) setProfile(p) })
+  }, [userId])
 
   const today = new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })
 
-  const loadData = useCallback(async (showLoading: boolean) => {
-    if (!activeSpaceId) return
-    if (showLoading) setIsLoading(true)
-    try {
-      const [spaceData, taskData, completionData] = await Promise.all([
-        getSpaceById(activeSpaceId),
-        getTasksForSpace(activeSpaceId),
-        getTodayCompletions(activeSpaceId),
-      ])
-      setSpace(spaceData); setTasks(taskData); setCompletions(completionData)
-    } catch (err) {
-      console.error('[home] loadData failed:', err)
-      Alert.alert('Lỗi', 'Không thể tải dữ liệu')
-    } finally {
-      if (showLoading) setIsLoading(false)
-    }
-  }, [activeSpaceId])
-
-  useEffect(() => {
-    if (!activeSpaceId || !userId) {
-      setSpace(null); setTasks([]); setCompletions([])
-      return
-    }
-    loadData(true)
-
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current)
-      channelRef.current = null
-    }
-    const channel = supabase
-      .channel(`home-${activeSpaceId}-completions-${Date.now()}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'task_completions', filter: `space_id=eq.${activeSpaceId}` },
-        (payload) => {
-          const incoming = payload.new as TaskCompletion
-          setCompletions((prev) => {
-            const without = prev.filter((c) => c.task_id !== incoming.task_id)
-            return [incoming, ...without]
-          })
-        })
-      .subscribe()
-    channelRef.current = channel
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current)
-        channelRef.current = null
-      }
-    }
-  }, [activeSpaceId, userId, loadData])
-
-  // Refresh on focus — đảm bảo tasks mới (vừa tạo trong Add/AI flow) hiện ngay
-  useFocusEffect(
-    useCallback(() => {
-      if (activeSpaceId && userId) loadData(false)
-    }, [activeSpaceId, userId, loadData]),
-  )
-
   const handleTick = async (taskId: string) => {
     if (!activeSpaceId || !userId) return
-    const alreadyDone = completions.find((c) => c.task_id === taskId && !c.is_skipped)
-    if (alreadyDone) return
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     try { await addCompletion(taskId, activeSpaceId, userId) }
     catch (err) { Alert.alert('Lỗi', err instanceof Error ? err.message : 'Không thể tick task') }
@@ -116,6 +72,12 @@ export default function HomeScreen() {
     if (!activeSpaceId || !userId) return
     try { await skipTask(taskId, activeSpaceId, userId) }
     catch (err) { Alert.alert('Lỗi', err instanceof Error ? err.message : 'Không thể bỏ qua task') }
+  }
+
+  const handleUncheck = async (completionId: string) => {
+    removeCompletion(completionId)
+    try { await deleteCompletion(completionId) }
+    catch (err) { Alert.alert('Lỗi', err instanceof Error ? err.message : 'Không thể bỏ tick') }
   }
 
   if (!activeSpaceId) {
@@ -132,20 +94,24 @@ export default function HomeScreen() {
     )
   }
 
-  const todoTasks = tasks.filter((t) => !completions.find((c) => c.task_id === t.id && !c.is_skipped))
-  const doneTasks = tasks.filter((t) => completions.find((c) => c.task_id === t.id && !c.is_skipped))
-  const pct = tasks.length ? Math.round((doneTasks.length / tasks.length) * 100) : 0
+  const myTasks = tasks.filter((t) => !t.assignee_id || t.assignee_id === userId)
+  const todoTasks = myTasks.filter((t) => !completions.find((c) => c.task_id === t.id && !c.is_skipped))
+  const doneTasks = myTasks.filter((t) => completions.find((c) => c.task_id === t.id && !c.is_skipped))
+  const pct = myTasks.length ? Math.round((doneTasks.length / myTasks.length) * 100) : 0
+  const skipTask_ = tasks.find((t) => t.id === skipFor) ?? null
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
       {space && (
-        <SpaceHeader
-          space={space}
-          onPressSpace={() => setSwitcherOpen(true)}
-        />
+        <SpaceHeader space={space} onPressSpace={() => setSwitcherOpen(true)} />
       )}
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.accent} />}
+      >
+        <Animated.View style={{ transform: [{ translateY: enter.translateY }], opacity: enter.opacity }}>
         <View style={[styles.greetCard, { backgroundColor: c.bg, ...shadow('raised', 'md') }]}>
           <View style={styles.greetTop}>
             <View>
@@ -153,7 +119,7 @@ export default function HomeScreen() {
                 Hôm nay · {today.split(',')[0]}
               </Text>
               <Text style={[styles.greetName, { color: c.textDark }]}>
-                Xin chào {(userProfile?.user_metadata?.display_name as string | undefined) ?? 'bạn'} 👋
+                Xin chào {profile?.display_name ?? 'bạn'} 👋
               </Text>
             </View>
             <ProgressRing pct={pct} />
@@ -167,7 +133,7 @@ export default function HomeScreen() {
             </View>
             <Text style={[styles.greetDivider, { color: c.textLight }]}>·</Text>
             <Text style={[styles.greetStatText, { color: c.textMid }]}>
-              <Text style={[styles.greetStatBold, { color: c.textDark }]}>{doneTasks.length}/{tasks.length}</Text> đã xong
+              <Text style={[styles.greetStatBold, { color: c.textDark }]}>{doneTasks.length}/{myTasks.length}</Text> đã xong
             </Text>
           </View>
         </View>
@@ -178,10 +144,10 @@ export default function HomeScreen() {
           </View>
         ) : (
           <>
-            {tasks.length > 0 && (
+            {myTasks.length > 0 && (
               <View style={styles.sectionRow}>
                 <Text style={[styles.sectionLabel, { color: c.textMid }]}>
-                  {todoTasks.length > 0 ? `CẦN LÀM · ${todoTasks.length}` : `HÔM NAY · ${tasks.length}`}
+                  {todoTasks.length > 0 ? `CẦN LÀM · ${todoTasks.length}` : `HÔM NAY · ${myTasks.length}`}
                 </Text>
                 <Pressable
                   onPress={() => router.push('/(app)/task/new')}
@@ -200,8 +166,9 @@ export default function HomeScreen() {
                     task={t}
                     lastCompletion={completions.find((c) => c.task_id === t.id) ?? null}
                     onTick={handleTick}
+                    onUncheck={handleUncheck}
                     onPress={() => router.push(`/(app)/task/${t.id}` as never)}
-                    onLongPress={() => setSkipFor(t)}
+                    onLongPress={() => setSkipFor(t.id)}
                   />
                 ))}
               </View>
@@ -209,33 +176,43 @@ export default function HomeScreen() {
 
             {doneTasks.length > 0 && (
               <>
-                <Text style={[styles.sectionLabel, { color: c.textMid, marginTop: 22, paddingHorizontal: 6 }]}>ĐÃ XONG · {doneTasks.length}</Text>
+                <Text style={[styles.sectionLabel, { color: c.textMid, marginTop: 22, paddingHorizontal: 6 }]}>
+                  ĐÃ XONG · {doneTasks.length}
+                </Text>
                 <View style={[styles.taskList, { marginTop: 10 }]}>
                   {doneTasks.map((t) => (
                     <TaskCard
                       key={t.id}
                       task={t}
-                      lastCompletion={completions.find((c) => c.task_id === t.id) ?? null}
+                      lastCompletion={completions.find((c) => c.task_id === t.id && !c.is_skipped) ?? null}
                       onTick={handleTick}
+                      onUncheck={handleUncheck}
                       onPress={() => router.push(`/(app)/task/${t.id}` as never)}
-                      onLongPress={() => setSkipFor(t)}
+                      onLongPress={() => setSkipFor(t.id)}
                     />
                   ))}
                 </View>
               </>
             )}
 
-            {tasks.length === 0 && (
-              <EmptyState
-                emoji="✅"
-                title="Chưa có task nào"
-                description="Thêm task để bắt đầu theo dõi công việc nhà."
-                actionLabel="Thêm task"
-                onAction={() => router.push('/(app)/task/new')}
-              />
+            {myTasks.length === 0 && (
+              <View style={[styles.emptyCard, { backgroundColor: c.bg, ...shadow('raised', 'md') }]}>
+                <Text style={styles.emptyEmoji}>🏡</Text>
+                <Text style={[styles.emptyTitle, { color: c.textDark }]}>Chưa có task nào</Text>
+                <Text style={[styles.emptyDesc, { color: c.textMid }]}>
+                  Thêm task để bắt đầu theo dõi{'\n'}công việc nhà cùng mọi người.
+                </Text>
+                <Pressable
+                  onPress={() => router.push('/(app)/task/new')}
+                  style={[styles.emptyBtn, { backgroundColor: c.accent, ...shadow('accent', 'sm') }]}
+                >
+                  <Text style={styles.emptyBtnText}>+ Thêm task</Text>
+                </Pressable>
+              </View>
             )}
           </>
         )}
+        </Animated.View>
       </ScrollView>
 
       <SpaceSwitcherSheet
@@ -245,13 +222,28 @@ export default function HomeScreen() {
 
       <SkipCoverSheet
         visible={skipFor !== null}
-        task={skipFor}
+        task={skipTask_}
         onClose={() => setSkipFor(null)}
         onSkip={async (taskId) => {
           setSkipFor(null)
           await handleSkip(taskId)
         }}
       />
+
+      {toast && (
+        <Animated.View
+          style={[
+            styles.toastBanner,
+            { backgroundColor: c.textDark },
+            {
+              opacity: toastAnim,
+              transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }],
+            },
+          ]}
+        >
+          <Text style={styles.toastText}>{toast}</Text>
+        </Animated.View>
+      )}
     </SafeAreaView>
   )
 }
@@ -274,4 +266,12 @@ const styles = StyleSheet.create({
   addBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.pill },
   addBtnText: { fontSize: 12, fontWeight: '600' },
   taskList: { gap: 10 },
+  emptyCard: { borderRadius: 28, padding: 32, marginTop: 8, alignItems: 'center', gap: 10 },
+  emptyEmoji: { fontSize: 48, marginBottom: 4 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', letterSpacing: -0.4 },
+  emptyDesc: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
+  emptyBtn: { marginTop: 8, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 999 },
+  emptyBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  toastBanner: { position: 'absolute', top: 16, left: 24, right: 24, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 18, alignItems: 'center', zIndex: 999 },
+  toastText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 })

@@ -8,7 +8,7 @@ import { NHeader } from '@/components/ui/NHeader'
 import { NButton } from '@/components/ui/NButton'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS, type ThemeColors } from '@/constants/theme'
+import { RADIUS, type ThemeColors } from '@/constants/theme'
 import { useStore } from '@/stores'
 import { callGenerateTasks, getSpaceMembers, getProfile, type GeneratedTask } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
@@ -16,11 +16,7 @@ import type { SpaceMember } from '@/types'
 
 type MemberWithProfile = SpaceMember & { profiles?: { display_name?: string; avatar_emoji?: string } }
 
-const FREQ_LABEL: Record<string, string> = {
-  daily: 'Hằng ngày',
-  weekly: 'Hằng tuần',
-  '3x_week': '3 lần/tuần',
-}
+
 
 const ROTATE_OPTION = '__rotate__'
 const ANYONE_OPTION = '__anyone__'
@@ -112,8 +108,7 @@ export default function AIReviewScreen() {
   const { spaceId, prompt } = useLocalSearchParams<{ spaceId: string; spaceName: string; prompt: string }>()
   const storeUserId = useStore((s) => s.user?.id)
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const [authUserId, setAuthUserId] = useState<string | null>(null)
   const [phase, setPhase] = useState<'loading' | 'review' | 'error'>('loading')
@@ -136,8 +131,6 @@ export default function AIReviewScreen() {
     setErrorMsg('')
     try {
       const memberRows = await getSpaceMembers(spaceId) as MemberWithProfile[]
-      console.log('[ai-review] spaceId:', spaceId, 'members fetched:', memberRows.length, memberRows)
-
       let memberInputs = memberRows.map((m) => ({
         id: m.user_id,
         display_name: m.profiles?.display_name ?? 'Bạn',
@@ -152,7 +145,6 @@ export default function AIReviewScreen() {
             id: authData.user.id,
             display_name: profile?.display_name ?? 'Bạn',
           }]
-          console.warn('[ai-review] fallback to current user as sole member:', memberInputs)
         }
       }
 
@@ -164,7 +156,6 @@ export default function AIReviewScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     } catch (err) {
       if (signal?.cancelled) return
-      console.error('[ai-review] runGenerate failed:', err)
       setErrorMsg(err instanceof Error ? err.message : 'Không thể tạo task')
       setPhase('error')
     }
@@ -232,7 +223,6 @@ export default function AIReviewScreen() {
         space_id: spaceId,
         name: t.name,
         icon: t.icon,
-        frequency: t.frequency,
         assignee_id: assigneeMember?.user_id ?? null,
         created_by: userId,
       }
@@ -240,7 +230,6 @@ export default function AIReviewScreen() {
     const { error } = await supabase.from('tasks').insert(toInsert)
     setIsSaving(false)
     if (error) {
-      console.error('[ai-review] insert tasks failed:', error)
       Alert.alert('Không thể lưu task', `${error.message}${error.code ? ` (${error.code})` : ''}`)
       return
     }
@@ -296,7 +285,6 @@ export default function AIReviewScreen() {
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={[styles.taskName, { color: c.textDark }]} numberOfLines={1}>{t.name}</Text>
                     <View style={styles.metaRow}>
-                      <Text style={[styles.freq, { color: c.accent }]}>{FREQ_LABEL[t.frequency] ?? t.frequency}</Text>
                       <Pressable
                         onPress={() => cycleAssignee(i)}
                         style={[styles.assigneeChip, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}

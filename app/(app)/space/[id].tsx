@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react'
 import { Alert } from 'react-native'
 import { useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -7,16 +6,9 @@ import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { SpaceHeader } from '@/components/space/SpaceHeader'
 import { TaskList } from '@/components/task/TaskList'
 import { useStore } from '@/stores'
-import { supabase } from '@/lib/supabase'
-import {
-  getSpaceById,
-  getTasksForSpace,
-  getTodayCompletions,
-  addCompletion,
-  skipTask,
-} from '@/lib/api'
-import type { Space, Task, TaskCompletion } from '@/types'
-import type { RealtimeChannel } from '@supabase/supabase-js'
+import { useTasks } from '@/hooks/useTasks'
+import { useSpace } from '@/hooks/useSpace'
+import { addCompletion, skipTask } from '@/lib/api'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -24,87 +16,29 @@ export default function SpaceDetailScreen() {
   const { id: spaceId } = useLocalSearchParams<{ id: string }>()
   const userId = useStore((s) => s.user?.id)
 
-  const [space, setSpace] = useState<Space | null>(null)
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [completions, setCompletions] = useState<TaskCompletion[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const isValidId = Boolean(spaceId && UUID_RE.test(spaceId))
+  const resolvedId = isValidId ? spaceId : null
 
-  const channelRef = useRef<RealtimeChannel | null>(null)
+  const { spaces } = useSpace()
+  const space = spaces.find((s) => s.id === resolvedId) ?? null
+  const { tasks, completions, isLoading } = useTasks(resolvedId)
 
-  const isValidId = spaceId && UUID_RE.test(spaceId)
-
-  useEffect(() => {
-    if (!isValidId || !userId) {
-      setIsLoading(false)
-      return
-    }
-
-    Promise.all([
-      getSpaceById(spaceId),
-      getTasksForSpace(spaceId),
-      getTodayCompletions(spaceId),
-    ])
-      .then(([spaceData, taskData, completionData]) => {
-        setSpace(spaceData)
-        setTasks(taskData)
-        setCompletions(completionData)
-      })
-      .catch(() => {
-        Alert.alert('Lỗi', 'Không thể tải dữ liệu')
-      })
-      .finally(() => setIsLoading(false))
-
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current)
-      channelRef.current = null
-    }
-    const channel = supabase
-      .channel(`space-${spaceId}-completions-${Date.now()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'task_completions',
-          filter: `space_id=eq.${spaceId}`,
-        },
-        (payload) => {
-          const newCompletion = payload.new as TaskCompletion
-          setCompletions((prev) => {
-            const without = prev.filter((c) => c.task_id !== newCompletion.task_id)
-            return [newCompletion, ...without]
-          })
-        },
-      )
-      .subscribe()
-    channelRef.current = channel
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current)
-        channelRef.current = null
-      }
-    }
-  }, [spaceId, userId, isValidId])
-
-  const handleTick = async (taskId: string) => {
-    if (!spaceId || !userId) return
-    const alreadyDone = completions.find(
-      (c) => c.task_id === taskId && !c.is_skipped,
-    )
+  const handleTick = async (taskId: string): Promise<void> => {
+    if (!resolvedId || !userId) return
+    const alreadyDone = completions.find((c) => c.task_id === taskId && !c.is_skipped)
     if (alreadyDone) return
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     try {
-      await addCompletion(taskId, spaceId, userId)
+      await addCompletion(taskId, resolvedId, userId)
     } catch (err) {
       Alert.alert('Lỗi', err instanceof Error ? err.message : 'Không thể tick task')
     }
   }
 
-  const handleSkip = async (taskId: string) => {
-    if (!spaceId || !userId) return
+  const handleSkip = async (taskId: string): Promise<void> => {
+    if (!resolvedId || !userId) return
     try {
-      await skipTask(taskId, spaceId, userId)
+      await skipTask(taskId, resolvedId, userId)
     } catch (err) {
       Alert.alert('Lỗi', err instanceof Error ? err.message : 'Không thể bỏ qua task')
     }

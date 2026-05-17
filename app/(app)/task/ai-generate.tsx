@@ -18,19 +18,14 @@ import { NButton } from '@/components/ui/NButton'
 import { useStore } from '@/stores'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS, type ThemeColors } from '@/constants/theme'
+import { RADIUS, type ThemeColors } from '@/constants/theme'
 import { getSpaceMembers, callGenerateTasks, getProfile, type GeneratedTask } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import type { SpaceMember } from '@/types'
 
-type MemberWithProfile = SpaceMember & { profiles?: { display_name?: string; avatar_emoji?: string } }
 type Phase = 'prompt' | 'loading' | 'review' | 'error'
 
-const FREQ_LABEL: Record<string, string> = {
-  daily: 'Hằng ngày',
-  weekly: 'Hằng tuần',
-  '3x_week': '3 lần/tuần',
-}
+
 
 const ROTATE_OPTION = '__rotate__'
 const ANYONE_OPTION = '__anyone__'
@@ -127,15 +122,15 @@ export default function AIGenerateScreen() {
   const router = useRouter()
   const activeSpaceId = useStore((s) => s.activeSpaceId)
   const storeUserId = useStore((s) => s.user?.id)
+  const showToast = useStore((s) => s.showToast)
 
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const [phase, setPhase] = useState<Phase>('prompt')
   const [prompt, setPrompt] = useState('')
   const [authUserId, setAuthUserId] = useState<string | null>(null)
-  const [members, setMembers] = useState<MemberWithProfile[]>([])
+  const [members, setMembers] = useState<SpaceMember[]>([])
   const [tasks, setTasks] = useState<GeneratedTask[]>([])
   const [errorMsg, setErrorMsg] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -148,12 +143,12 @@ export default function AIGenerateScreen() {
 
   const userId = authUserId ?? storeUserId
 
-  const runGenerate = async () => {
+  const runGenerate = async (): Promise<void> => {
     if (!activeSpaceId || !prompt.trim()) return
     setPhase('loading')
     setErrorMsg('')
     try {
-      const memberRows = (await getSpaceMembers(activeSpaceId)) as MemberWithProfile[]
+      const memberRows = await getSpaceMembers(activeSpaceId)
       let memberInputs = memberRows.map((m) => ({
         id: m.user_id,
         display_name: m.profiles?.display_name ?? 'Bạn',
@@ -171,7 +166,6 @@ export default function AIGenerateScreen() {
       setPhase('review')
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     } catch (err) {
-      console.error('[task/ai-generate] failed:', err)
       setErrorMsg(err instanceof Error ? err.message : 'Không thể tạo task')
       setPhase('error')
     }
@@ -230,7 +224,6 @@ export default function AIGenerateScreen() {
         space_id: activeSpaceId,
         name: t.name,
         icon: t.icon,
-        frequency: t.frequency,
         assignee_id: assigneeMember?.user_id ?? null,
         created_by: userId,
       }
@@ -242,7 +235,8 @@ export default function AIGenerateScreen() {
       return
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-    router.back()
+    showToast(`✅ Đã tạo ${tasks.length} task thành công!`)
+    router.replace('/(app)/(tabs)/' as never)
   }
 
   return (
@@ -334,14 +328,13 @@ export default function AIGenerateScreen() {
             {tasks.map((t, i) => {
               const opt = assigneeOptions[findOptionIndex(t.assignee_display_name)]
               return (
-                <View key={i} style={[styles.taskRow, { backgroundColor: c.bg, ...shadow('raised', 'sm') }]}>
+                <View key={`${t.name}-${i}`} style={[styles.taskRow, { backgroundColor: c.bg, ...shadow('raised', 'sm') }]}>
                   <View style={[styles.taskIcon, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
                     <Text style={styles.taskIconText}>{t.icon}</Text>
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={[styles.taskName, { color: c.textDark }]} numberOfLines={1}>{t.name}</Text>
                     <View style={styles.metaRow}>
-                      <Text style={[styles.freq, { color: c.accent }]}>{FREQ_LABEL[t.frequency] ?? t.frequency}</Text>
                       <Pressable
                         onPress={() => cycleAssignee(i)}
                         style={[styles.assigneeChip, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}

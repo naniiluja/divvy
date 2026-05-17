@@ -4,7 +4,30 @@ import { useTheme } from './useTheme'
 export type ShadowKind = 'raised' | 'inset' | 'accent'
 export type ShadowSize = 'sm' | 'md' | 'lg'
 
-export function useNeumorphic() {
+const SHADOW_DIMENSIONS: Record<ShadowKind, Record<ShadowSize, { off: number; blur: number; alpha?: number }>> = {
+  raised: {
+    sm: { off: 4, blur: 10 },
+    md: { off: 8, blur: 18 },
+    lg: { off: 14, blur: 30 },
+  },
+  inset: {
+    sm: { off: 3, blur: 6 },
+    md: { off: 5, blur: 10 },
+    lg: { off: 7, blur: 14 },
+  },
+  accent: {
+    sm: { off: 3, blur: 8, alpha: 0.35 },
+    md: { off: 6, blur: 14, alpha: 0.45 },
+    lg: { off: 10, blur: 22, alpha: 0.5 },
+  },
+}
+
+// Hardcoded accent-shadow base — intentional: visual shadow does not follow the user-picked accent.
+const ACCENT_SHADOW_RGB = '78, 93, 209'
+
+export function useNeumorphic(): {
+  shadow: (kind: ShadowKind, size?: ShadowSize) => ViewStyle
+} {
   const { isDark } = useTheme()
 
   const lightShadow = isDark
@@ -14,21 +37,10 @@ export function useNeumorphic() {
     ? 'rgba(8, 10, 18, 0.55)'
     : 'rgba(163, 177, 198, 0.55)'
 
-  const shadow = (kind: ShadowKind, size: ShadowSize = 'md'): ViewStyle => {
-    if (kind === 'raised') {
-      const off = size === 'sm' ? 4 : size === 'md' ? 8 : 14
-      const blur = size === 'sm' ? 10 : size === 'md' ? 18 : 30
-      return {
-        boxShadow: [
-          { offsetX: off, offsetY: off, blurRadius: blur, color: darkShadow },
-          { offsetX: -off, offsetY: -off, blurRadius: blur, color: lightShadow },
-        ],
-      } as ViewStyle
-    }
+  function shadow(kind: ShadowKind, size: ShadowSize = 'md'): ViewStyle {
+    const { off, blur, alpha } = SHADOW_DIMENSIONS[kind][size]
 
     if (kind === 'inset') {
-      const off = size === 'sm' ? 3 : size === 'md' ? 5 : 7
-      const blur = size === 'sm' ? 6 : size === 'md' ? 10 : 14
       return {
         boxShadow: [
           { offsetX: off, offsetY: off, blurRadius: blur, inset: true, color: darkShadow },
@@ -37,12 +49,18 @@ export function useNeumorphic() {
       } as ViewStyle
     }
 
-    // accent
-    const off = size === 'sm' ? 3 : size === 'md' ? 6 : 10
-    const blur = size === 'sm' ? 8 : size === 'md' ? 14 : 22
+    if (kind === 'accent') {
+      return {
+        boxShadow: [
+          { offsetX: off, offsetY: off, blurRadius: blur, color: `rgba(${ACCENT_SHADOW_RGB}, ${alpha ?? 0.45})` },
+          { offsetX: -off, offsetY: -off, blurRadius: blur, color: lightShadow },
+        ],
+      } as ViewStyle
+    }
+
     return {
       boxShadow: [
-        { offsetX: off, offsetY: off, blurRadius: blur, color: `rgba(78, 93, 209, ${size === 'sm' ? 0.35 : size === 'md' ? 0.45 : 0.5})` },
+        { offsetX: off, offsetY: off, blurRadius: blur, color: darkShadow },
         { offsetX: -off, offsetY: -off, blurRadius: blur, color: lightShadow },
       ],
     } as ViewStyle

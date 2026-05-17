@@ -1,27 +1,37 @@
 import { useColorScheme } from 'react-native'
-import { colors } from '@/constants/theme'
+import { colors, type ThemeColors } from '@/constants/theme'
 import { useStore } from '@/stores'
+import { ACCENT_COLORS } from '@/stores/uiSlice'
 
 export type ThemeMode = 'light' | 'dark'
-export type ThemeColors = typeof colors.light | typeof colors.dark
+export { ThemeColors }
+
+function resolveIsDark(override: 'system' | 'light' | 'dark', systemScheme: 'light' | 'dark' | null | undefined): boolean {
+  if (override === 'system') return systemScheme === 'dark'
+  return override === 'dark'
+}
 
 export function useTheme(): {
   mode: ThemeMode
   colors: ThemeColors
   isDark: boolean
+  accentColor: string
+  c: ThemeColors
 } {
   const systemScheme = useColorScheme()
   const themeOverride = useStore((s) => s.themeOverride)
+  const accentKey = useStore((s) => s.accentKey)
 
-  const isDark = themeOverride === 'system'
-    ? systemScheme === 'dark'
-    : themeOverride === 'dark'
-
-  const mode: ThemeMode = isDark ? 'dark' : 'light'
+  const isDark = resolveIsDark(themeOverride, systemScheme)
+  const accentColor = ACCENT_COLORS[accentKey]
+  const base = isDark ? colors.dark : colors.light
+  const c: ThemeColors = { ...base, accent: accentColor }
 
   return {
-    mode,
-    colors: isDark ? colors.dark : colors.light,
+    mode: isDark ? 'dark' : 'light',
+    colors: c,
     isDark,
+    accentColor,
+    c,
   }
 }

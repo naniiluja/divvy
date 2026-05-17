@@ -7,31 +7,19 @@ export function useTaskActions(): {
 } {
   const userId = useStore((s) => s.user?.id)
 
-  const tickTask = async (taskId: string, spaceId: string): Promise<void> => {
+  async function insertCompletion(taskId: string, spaceId: string, isSkipped: boolean): Promise<void> {
     if (!userId) return
-
     const { error } = await supabase.from('task_completions').insert({
       task_id: taskId,
       space_id: spaceId,
       completed_by: userId,
-      is_skipped: false,
+      is_skipped: isSkipped,
     })
-
     if (error) throw error
   }
 
-  const skipTask = async (taskId: string, spaceId: string): Promise<void> => {
-    if (!userId) return
-
-    const { error } = await supabase.from('task_completions').insert({
-      task_id: taskId,
-      space_id: spaceId,
-      completed_by: userId,
-      is_skipped: true,
-    })
-
-    if (error) throw error
+  return {
+    tickTask: (taskId, spaceId) => insertCompletion(taskId, spaceId, false),
+    skipTask: (taskId, spaceId) => insertCompletion(taskId, spaceId, true),
   }
-
-  return { tickTask, skipTask }
 }

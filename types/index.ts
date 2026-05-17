@@ -32,7 +32,6 @@ export interface Task {
   space_id: string
   name: string
   icon: string
-  frequency: 'daily' | 'weekly' | '3x_week'
   assignee_id?: string
   created_by?: string
   created_at?: string

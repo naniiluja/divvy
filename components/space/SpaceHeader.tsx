@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router'
 import type { FC } from 'react'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import { IconBell, IconChevronRight } from '@/components/ui/NIcons'
 import type { Space } from '@/types'
 
@@ -15,8 +15,7 @@ interface SpaceHeaderProps {
 export const SpaceHeader: FC<SpaceHeaderProps> = ({ space, onPressSpace }) => {
   const router = useRouter()
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   return (
     <View style={styles.row}>

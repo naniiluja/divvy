@@ -2,7 +2,7 @@ import { View, TextInput, Text } from 'react-native'
 import type { FC } from 'react'
 import type { TextInputProps } from 'react-native'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 
 interface NInputProps extends Omit<TextInputProps, 'style'> {
   label?: string
@@ -16,8 +16,7 @@ export const NInput: FC<NInputProps> = ({
   onChangeText,
   ...rest
 }) => {
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { isDark, c } = useTheme()
 
   return (
     <View className="gap-2">

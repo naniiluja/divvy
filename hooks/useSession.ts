@@ -3,25 +3,29 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { useStore } from '@/stores'
 
-export function useSession(): { session: Session | null; isLoading: boolean } {
+export function useSession(): {
+  session: Session | null
+  isLoading: boolean
+  isAuthenticated: boolean
+} {
   const session = useStore((s) => s.session)
+  const isLoading = useStore((s) => s.isSessionLoading)
   const setSession = useStore((s) => s.setSession)
-  const isLoading = useStore((s) => s.isLoading)
-  const setLoading = useStore((s) => s.setLoading)
+  const setSessionLoading = useStore((s) => s.setSessionLoading)
 
   useEffect(() => {
-    setLoading(true)
+    setSessionLoading(true)
 
-    supabase.auth.getUser().then(({ data: { user }, error }) => {
+    // getUser() validates the token with the server; getSession() returns the cached session.
+    // Validate first, then fetch the session if a user is present.
+    supabase.auth.getUser().then(async ({ data: { user }, error }) => {
       if (error || !user) {
         setSession(null)
-        setLoading(false)
-        return
+      } else {
+        const { data } = await supabase.auth.getSession()
+        setSession(data.session)
       }
-      supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-        setSession(currentSession)
-        setLoading(false)
-      })
+      setSessionLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -31,7 +35,7 @@ export function useSession(): { session: Session | null; isLoading: boolean } {
     return () => {
       subscription.unsubscribe()
     }
-  }, [setSession, setLoading])
+  }, [setSession, setSessionLoading])
 
-  return { session, isLoading }
+  return { session, isLoading, isAuthenticated: !!session }
 }

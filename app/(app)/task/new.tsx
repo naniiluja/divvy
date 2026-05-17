@@ -19,22 +19,10 @@ import { NButton } from '@/components/ui/NButton'
 import { useStore } from '@/stores'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import { supabase } from '@/lib/supabase'
 import { getSpaceMembers } from '@/lib/api'
 import type { SpaceMember } from '@/types'
-
-type Frequency = 'daily' | 'weekly' | '3x_week'
-type MemberWithProfile = SpaceMember & {
-  profiles?: { display_name?: string; avatar_emoji?: string }
-}
-
-const FREQ_OPTIONS: { id: Frequency | 'custom'; label: string; sub: string; disabled?: boolean }[] = [
-  { id: 'daily', label: 'Hằng ngày', sub: 'Reset mỗi 24h' },
-  { id: 'weekly', label: 'Hằng tuần', sub: 'Reset thứ 2 hằng tuần' },
-  { id: '3x_week', label: '3 lần/tuần', sub: 'Thứ 2 · Thứ 4 · Thứ 6' },
-  { id: 'custom', label: 'Tuỳ chỉnh', sub: 'Coming soon', disabled: true },
-]
 
 const TASK_EMOJIS = [
   '🐶', '🦮', '🐱', '🐟', '🌿', '🍳', '🧹', '🧺', '🗑️',
@@ -137,21 +125,20 @@ export default function NewTaskScreen() {
   const router = useRouter()
   const activeSpaceId = useStore((s) => s.activeSpaceId)
   const storeUserId = useStore((s) => s.user?.id)
+  const showToast = useStore((s) => s.showToast)
 
   const [name, setName] = useState('')
   const [icon, setIcon] = useState('🧹')
-  const [frequency, setFrequency] = useState<Frequency>('daily')
   const [assignee, setAssignee] = useState<string>(LUAN_PHIEN)
-  const [members, setMembers] = useState<MemberWithProfile[]>([])
+  const [members, setMembers] = useState<SpaceMember[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   useEffect(() => {
     if (!activeSpaceId) return
-    getSpaceMembers(activeSpaceId).then((rows) => setMembers(rows as MemberWithProfile[]))
+    getSpaceMembers(activeSpaceId).then(setMembers)
   }, [activeSpaceId])
 
   const valid = name.trim().length >= 2
@@ -181,20 +168,19 @@ export default function NewTaskScreen() {
       space_id: activeSpaceId,
       name: name.trim(),
       icon,
-      frequency,
       assignee_id: assigneeId,
       created_by: actualUserId,
     })
     setIsLoading(false)
     if (error) {
-      console.error('[task/new] insert failed:', error)
       Alert.alert(
         'Không thể tạo task',
         `${error.message}${error.code ? ` (${error.code})` : ''}`,
       )
       return
     }
-    router.back()
+    showToast('✅ Đã tạo task thành công!')
+    router.replace('/(app)/(tabs)/' as never)
   }
 
   return (
@@ -249,47 +235,6 @@ export default function NewTaskScreen() {
                   ]}
                 >
                   <Text style={styles.emojiBtnText}>{e}</Text>
-                </Pressable>
-              )
-            })}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: c.textMid }]}>TẦN SUẤT</Text>
-          <View style={styles.freqList}>
-            {FREQ_OPTIONS.map((f) => {
-              const active = !f.disabled && frequency === f.id
-              return (
-                <Pressable
-                  key={f.id}
-                  onPress={() => {
-                    if (f.disabled) {
-                      Alert.alert('Coming soon', 'Tần suất tuỳ chỉnh sẽ có ở v1.1.')
-                      return
-                    }
-                    setFrequency(f.id as Frequency)
-                  }}
-                  style={[
-                    styles.freqRow,
-                    {
-                      backgroundColor: c.bg,
-                      opacity: f.disabled ? 0.55 : 1,
-                    },
-                    active ? shadow('inset', 'sm') : shadow('raised', 'sm'),
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.radioBtn,
-                      { backgroundColor: active ? c.accent : c.bg },
-                      active ? shadow('accent', 'sm') : shadow('inset', 'sm'),
-                    ]}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.freqLabel, { color: c.textDark }]}>{f.label}</Text>
-                    <Text style={[styles.freqSub, { color: c.textMid }]}>{f.sub}</Text>
-                  </View>
                 </Pressable>
               )
             })}
@@ -409,14 +354,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   emojiBtn: {
-    width: '10.5%',
-    aspectRatio: 1,
+    width: 44,
+    height: 44,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    flexGrow: 0,
   },
-  emojiBtnText: { fontSize: 18 },
+  emojiBtnText: { fontSize: 22, lineHeight: 28, textAlignVertical: 'center' },
   freqList: { gap: 8 },
   freqRow: {
     flexDirection: 'row',

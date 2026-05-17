@@ -7,7 +7,7 @@ import { NHeader } from '@/components/ui/NHeader'
 import { NButton } from '@/components/ui/NButton'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 
 const FEATURES = [
   { emoji: '⏰', title: 'Nhắc task đến giờ', sub: 'Nhắc nhẹ trước thời điểm task cần làm.' },
@@ -18,8 +18,7 @@ const FEATURES = [
 export default function NotifPermissionScreen() {
   const router = useRouter()
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const scale = useRef(new Animated.Value(1)).current
   const [isLoading, setIsLoading] = useState(false)

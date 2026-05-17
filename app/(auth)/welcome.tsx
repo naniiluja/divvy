@@ -3,8 +3,9 @@ import { View, Text, Pressable, Dimensions, StyleSheet, Animated, Easing } from 
 import { useRouter } from 'expo-router'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS, ThemeColors } from '@/constants/theme'
+import { RADIUS, ThemeColors } from '@/constants/theme'
 import { DivvyMark } from '@/components/ui/DivvyMark'
+import { NDots } from '@/components/ui/NDots'
 
 const { width: SW } = Dimensions.get('window')
 
@@ -219,32 +220,10 @@ function ArtSparkle({ c, shadow }: { c: ThemeColors; shadow: ReturnType<typeof u
   )
 }
 
-function NDots({ count, activeIndex, c, shadow }: { count: number; activeIndex: number; c: ThemeColors; shadow: ReturnType<typeof useNeumorphic>['shadow'] }) {
-  return (
-    <View style={[styles.dotsContainer, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
-      {Array.from({ length: count }).map((_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.dot,
-            {
-              width: i === activeIndex ? 22 : 8,
-              backgroundColor: i === activeIndex ? c.accent : c.textLight,
-              opacity: i === activeIndex ? 1 : 0.4,
-            },
-          ]}
-        />
-      ))}
-    </View>
-  )
-}
-
 function ArrowRight({ color }: { color: string }) {
   return (
     <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}>
-      {/* horizontal bar */}
       <View style={{ width: 14, height: 2.5, backgroundColor: color, borderRadius: 2, marginRight: -2 }} />
-      {/* chevron head — top & right border */}
       <View style={{
         position: 'absolute',
         right: 5,
@@ -266,8 +245,7 @@ export default function WelcomeScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current
   const slideAnim = useRef(new Animated.Value(0)).current
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const goTo = (next: number) => {
     Animated.parallel([
@@ -296,7 +274,6 @@ export default function WelcomeScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: c.bg }]}>
       <View style={styles.slide}>
-        {/* Header: logo + skip */}
         <View style={styles.slideHeader}>
           <DivvyMark size={42} />
           <Pressable onPress={() => router.replace('/(auth)/sign-in')} style={styles.skipBtn}>
@@ -304,16 +281,13 @@ export default function WelcomeScreen() {
           </Pressable>
         </View>
 
-        {/* Art + text — animated fade+slide */}
         <Animated.View style={{ flex: 1, opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
-          {/* Art illustration */}
           <View style={styles.artWrap}>
             {slide.art === 'house' && <ArtHouse c={c} shadow={shadow} />}
             {slide.art === 'tap' && <ArtTap c={c} shadow={shadow} />}
             {slide.art === 'sparkle' && <ArtSparkle c={c} shadow={shadow} />}
           </View>
 
-          {/* Text section */}
           <View style={styles.textSection}>
             <View style={[styles.badge, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
               <Text style={[styles.badgeText, { color: c.accent }]}>{slide.badge}</Text>
@@ -338,9 +312,8 @@ export default function WelcomeScreen() {
           </View>
         </Animated.View>
 
-        {/* Bottom: dots + next button — không animate */}
         <View style={styles.bottom}>
-          <NDots count={SLIDES.length} activeIndex={activeIndex} c={c} shadow={shadow} />
+          <NDots count={SLIDES.length} activeIndex={activeIndex} />
           <Pressable
             onPress={handleNext}
             style={[styles.nextBtn, { backgroundColor: c.accent, ...shadow('accent') }]}
@@ -502,18 +475,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  dotsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: RADIUS.pill,
-  },
-  dot: {
-    height: 8,
-    borderRadius: 999,
-  },
   nextBtn: {
     width: 64,
     height: 64,
@@ -521,5 +482,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nextBtnText: { color: '#fff', fontSize: 22, fontWeight: '700' },
 })

@@ -16,10 +16,12 @@ export const useStore = create<BoundStore>()(
     }),
     {
       name: 'divvy-store',
+      version: 1,
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         activeSpaceId: state.activeSpaceId,
         themeOverride: state.themeOverride,
+        accentKey: state.accentKey,
       }),
     },
   ),

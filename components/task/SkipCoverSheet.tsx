@@ -4,15 +4,9 @@ import * as Haptics from 'expo-haptics'
 import { NSheet } from '@/components/ui/NSheet'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import type { Task } from '@/types'
 
-const FREQ_LABEL: Record<string, string> = {
-  daily: 'Hằng ngày',
-  weekly: 'Hằng tuần',
-  '3x_week': '3 lần/tuần',
-  '2x_week': '2 lần/tuần',
-}
 
 interface SkipCoverSheetProps {
   visible: boolean
@@ -23,8 +17,7 @@ interface SkipCoverSheetProps {
 
 export const SkipCoverSheet: FC<SkipCoverSheetProps> = ({ visible, task, onClose, onSkip }) => {
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   if (!task) {
     return <NSheet visible={visible} onClose={onClose}><View /></NSheet>
@@ -43,7 +36,7 @@ export const SkipCoverSheet: FC<SkipCoverSheetProps> = ({ visible, task, onClose
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={[styles.name, { color: c.textDark }]} numberOfLines={1}>{task.name}</Text>
-          <Text style={[styles.sub, { color: c.textMid }]}>{FREQ_LABEL[task.frequency] ?? task.frequency}</Text>
+          <Text style={[styles.sub, { color: c.textMid }]}>{task.assignee_id ? 'Của bạn' : 'Ai cũng được'}</Text>
         </View>
       </View>
 

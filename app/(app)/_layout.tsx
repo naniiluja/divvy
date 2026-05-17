@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { View, ActivityIndicator } from 'react-native'
+import { View } from 'react-native'
 import { Redirect, Stack } from 'expo-router'
 import { useSession } from '@/hooks/useSession'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
@@ -24,11 +24,7 @@ export default function AppLayout() {
   }, [session, activeSpaceId, setActiveSpaceId])
 
   if (isLoading) {
-    return (
-      <View className="flex-1 bg-neu-bg dark:bg-neu-d-bg items-center justify-center">
-        <ActivityIndicator color="#6C7CFF" size="large" />
-      </View>
-    )
+    return <View className="flex-1 bg-neu-bg dark:bg-neu-d-bg" />
   }
 
   if (!session) {

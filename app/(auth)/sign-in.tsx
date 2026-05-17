@@ -8,7 +8,7 @@ import * as Linking from 'expo-linking'
 import Constants from 'expo-constants'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import { NButton } from '@/components/ui/NButton'
 import { NHeader } from '@/components/ui/NHeader'
 import { supabase } from '@/lib/supabase'
@@ -44,8 +44,7 @@ export default function SignInScreen() {
   const [toggleWidth, setToggleWidth] = useState(0)
   const slideAnim = useRef(new Animated.Value(0)).current
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const redirectUrl = makeRedirectUri()
   const url = Linking.useURL()

@@ -11,7 +11,6 @@ import {
 import type { FC, ReactNode } from 'react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK } from '@/constants/theme'
 
 interface NSheetProps {
   visible: boolean
@@ -23,8 +22,7 @@ const SH = Dimensions.get('window').height
 
 export const NSheet: FC<NSheetProps> = ({ visible, onClose, children }) => {
   const insets = useSafeAreaInsets()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const backdrop = useRef(new Animated.Value(0)).current
   const translateY = useRef(new Animated.Value(SH)).current

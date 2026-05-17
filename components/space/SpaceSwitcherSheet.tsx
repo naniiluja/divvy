@@ -5,7 +5,7 @@ import * as Haptics from 'expo-haptics'
 import { NSheet } from '@/components/ui/NSheet'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import { useStore } from '@/stores'
 import { useSpaceStats } from '@/hooks/useSpaceStats'
 
@@ -20,8 +20,7 @@ export const SpaceSwitcherSheet: FC<SpaceSwitcherSheetProps> = ({ visible, onClo
   const activeSpaceId = useStore((s) => s.activeSpaceId)
   const setActiveSpaceId = useStore((s) => s.setActiveSpaceId)
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const { stats, isLoading } = useSpaceStats(userId ?? null, visible)
 

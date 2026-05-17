@@ -6,7 +6,7 @@ import { useStore } from '@/stores'
 
 const IS_EXPO_GO = Constants.appOwnership === 'expo'
 
-export function usePushNotifications() {
+export function usePushNotifications(): void {
   const userId = useStore((s) => s.user?.id)
 
   useEffect(() => {
@@ -15,7 +15,7 @@ export function usePushNotifications() {
   }, [userId])
 }
 
-async function registerForPushNotifications(userId: string) {
+async function registerForPushNotifications(userId: string): Promise<void> {
   try {
     const Device = await import('expo-device')
     const Notifications = await import('expo-notifications')
@@ -23,11 +23,9 @@ async function registerForPushNotifications(userId: string) {
     if (!Device.default.isDevice) return
 
     const { status: existing } = await Notifications.getPermissionsAsync()
-    let finalStatus = existing
-    if (existing !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync()
-      finalStatus = status
-    }
+    const finalStatus = existing === 'granted'
+      ? existing
+      : (await Notifications.requestPermissionsAsync()).status
     if (finalStatus !== 'granted') return
 
     if (Platform.OS === 'android') {
@@ -37,9 +35,9 @@ async function registerForPushNotifications(userId: string) {
       })
     }
 
-    const token = (await Notifications.getExpoPushTokenAsync()).data
+    const { data: token } = await Notifications.getExpoPushTokenAsync()
     await supabase.from('profiles').update({ expo_push_token: token }).eq('id', userId)
   } catch {
-    // push notifications not available (Expo Go)
+    // expo-device / expo-notifications unavailable (e.g. Expo Go) — skip silently
   }
 }

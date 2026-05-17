@@ -2,7 +2,6 @@ import { Pressable, Text, ActivityIndicator } from 'react-native'
 import type { FC } from 'react'
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK } from '@/constants/theme'
 
 export type ButtonVariant = 'accent' | 'ghost'
 export type ButtonSize = 'lg' | 'md' | 'sm'
@@ -36,8 +35,7 @@ export const Button: FC<ButtonProps> = ({
   isLoading = false,
   isDisabled = false,
 }) => {
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const handlePress = () => {
     if (isDisabled || isLoading) return

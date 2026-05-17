@@ -2,7 +2,7 @@ import { View, StyleSheet } from 'react-native'
 import type { FC } from 'react'
 import { useTheme } from '@/hooks/useTheme'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 
 interface NDotsProps {
   count: number
@@ -10,9 +10,8 @@ interface NDotsProps {
 }
 
 export const NDots: FC<NDotsProps> = ({ count, activeIndex }) => {
-  const { isDark } = useTheme()
+  const { isDark, c } = useTheme()
   const { shadow } = useNeumorphic()
-  const c = isDark ? DARK : LIGHT
 
   return (
     <View

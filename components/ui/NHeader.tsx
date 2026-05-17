@@ -2,7 +2,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import type { FC } from 'react'
 
 interface NHeaderProps {
@@ -14,8 +14,7 @@ interface NHeaderProps {
 export const NHeader: FC<NHeaderProps> = ({ step, total, onBack }) => {
   const router = useRouter()
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const raisedSm = shadow('raised', 'sm')
   const insetSm = shadow('inset', 'sm')

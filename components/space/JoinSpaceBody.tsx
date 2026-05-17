@@ -5,7 +5,7 @@ import { NButton } from '@/components/ui/NButton'
 import { NDivider } from '@/components/ui/NDivider'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import { useStore } from '@/stores'
 import { getSpaceByInviteCode, joinSpace } from '@/lib/api'
 import type { Space } from '@/types'
@@ -25,8 +25,7 @@ export const JoinSpaceBody: FC<JoinSpaceBodyProps> = ({ onSuccess }) => {
   const [isLoading, setIsLoading] = useState(false)
 
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const extractCode = (input: string): string | null => {
     const trimmed = input.trim()

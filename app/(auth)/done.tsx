@@ -5,17 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { NButton } from '@/components/ui/NButton'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import { useStore } from '@/stores'
 import { getSpaceById, getTasksForSpace } from '@/lib/api'
 import type { Space, Task } from '@/types'
 
 const CONFETTI_COLORS = ['#6C7CFF', '#A78BFA', '#F472B6', '#FBBF24', '#34D399', '#60A5FA']
-const FREQ_LABEL: Record<string, string> = {
-  daily: 'Hằng ngày',
-  weekly: 'Hằng tuần',
-  '3x_week': '3 lần/tuần',
-}
+
 
 function Confetti({ delay, color, x }: { delay: number; color: string; x: number }) {
   const tY = useRef(new Animated.Value(0)).current
@@ -65,8 +61,7 @@ export default function DoneScreen() {
   const activeSpaceId = useStore((s) => s.activeSpaceId)
   const user = useStore((s) => s.user)
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const [space, setSpace] = useState<Space | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -127,9 +122,6 @@ export default function DoneScreen() {
                   <Text style={styles.previewTaskIcon}>{t.icon}</Text>
                   <Text style={[styles.previewTaskName, { color: c.textDark }]} numberOfLines={1}>
                     {t.name}
-                  </Text>
-                  <Text style={[styles.previewTaskFreq, { color: c.accent }]}>
-                    {FREQ_LABEL[t.frequency] ?? t.frequency}
                   </Text>
                 </View>
               ))

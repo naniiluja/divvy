@@ -7,7 +7,7 @@ import { NHeader } from '@/components/ui/NHeader'
 import { NButton } from '@/components/ui/NButton'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 
 const SAMPLES = [
   { emoji: '🐶', label: 'Nhà 2 người + 1 chó nhỏ' },
@@ -19,8 +19,7 @@ export default function AIPromptScreen() {
   const router = useRouter()
   const { spaceId, spaceName } = useLocalSearchParams<{ spaceId: string; spaceName: string }>()
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const [prompt, setPrompt] = useState('')
   const valid = prompt.trim().length >= 5

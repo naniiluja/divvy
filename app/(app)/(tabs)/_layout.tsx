@@ -2,7 +2,6 @@ import { Tabs } from 'expo-router'
 import Svg, { Rect, Path, Circle } from 'react-native-svg'
 import { useTheme } from '@/hooks/useTheme'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
-import { LIGHT, DARK } from '@/constants/theme'
 
 function IconToday({ color }: { color: string }) {
   return (
@@ -43,24 +42,23 @@ function IconProfile({ color }: { color: string }) {
 }
 
 export default function TabsLayout() {
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { accentColor, c } = useTheme()
   const { shadow } = useNeumorphic()
 
   const tabBarStyle = {
     position: 'absolute' as const,
-    left: 14,
-    right: 14,
-    bottom: 20,
-    borderRadius: 28,
+    left: 20,
+    right: 20,
+    bottom: 24,
+    borderRadius: 26,
     backgroundColor: c.bg,
     borderTopWidth: 0,
     elevation: 0,
     shadowOpacity: 0,
-    height: 68,
-    paddingBottom: 6,
-    paddingTop: 6,
-    paddingHorizontal: 6,
+    height: 64,
+    paddingBottom: 4,
+    paddingTop: 4,
+    paddingHorizontal: 8,
     ...shadow('raised', 'md'),
   }
 
@@ -69,7 +67,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle,
-        tabBarActiveTintColor: c.accent,
+        tabBarActiveTintColor: accentColor,
         tabBarInactiveTintColor: c.textMid,
         tabBarLabelStyle: {
           fontFamily: 'PlusJakartaSans_600SemiBold',

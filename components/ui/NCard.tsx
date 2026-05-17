@@ -3,7 +3,7 @@ import type { FC, ReactNode } from 'react'
 import type { ViewStyle } from 'react-native'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 
 interface NCardProps {
   children: ReactNode
@@ -21,8 +21,7 @@ export const NCard: FC<NCardProps> = ({
   style,
 }) => {
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   return (
     <View

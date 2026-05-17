@@ -5,7 +5,7 @@ import { NButton } from '@/components/ui/NButton'
 import { NHeader } from '@/components/ui/NHeader'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import { supabase } from '@/lib/supabase'
 import { upsertProfile } from '@/lib/api'
 
@@ -17,8 +17,7 @@ export default function ProfileSetupScreen() {
   const [emoji, setEmoji] = useState('🌸')
   const [isLoading, setIsLoading] = useState(false)
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const valid = name.trim().length >= 2
 
@@ -51,7 +50,6 @@ export default function ProfileSetupScreen() {
           </Text>
         </View>
 
-        {/* Avatar large */}
         <View style={styles.avatarWrap}>
           <View style={[styles.avatarCircle, { backgroundColor: c.bg, ...shadow('raised', 'md') }]}>
             <Text style={styles.avatarEmoji}>{emoji}</Text>
@@ -61,7 +59,6 @@ export default function ProfileSetupScreen() {
           </View>
         </View>
 
-        {/* Name input */}
         <View style={[styles.nameInput, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
           <TextInput
             value={name}
@@ -73,7 +70,6 @@ export default function ProfileSetupScreen() {
           />
         </View>
 
-        {/* Emoji picker */}
         <View style={{ gap: 12 }}>
           <Text style={[styles.pickerLabel, { color: c.textMid }]}>CHỌN AVATAR</Text>
           <View style={styles.emojiGrid}>

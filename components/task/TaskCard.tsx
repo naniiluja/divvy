@@ -1,109 +1,149 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { View, Text, Pressable, StyleSheet, Animated } from 'react-native'
 import type { FC } from 'react'
+import { useRef, useEffect } from 'react'
 import * as Haptics from 'expo-haptics'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK } from '@/constants/theme'
-import { IconRotate } from '@/components/ui/NIcons'
 import type { Task, TaskCompletion } from '@/types'
-
-const FREQ_LABEL: Record<string, string> = {
-  daily: 'Hằng ngày',
-  weekly: 'Hằng tuần',
-  '3x_week': '3 lần/tuần',
-  '2x_week': '2 lần/tuần',
-}
 
 interface TaskCardProps {
   task: Task
   lastCompletion?: TaskCompletion | null
   onTick: (taskId: string) => void
+  onUncheck?: (completionId: string) => void
   onPress?: () => void
   onLongPress?: () => void
 }
 
-export const TaskCard: FC<TaskCardProps> = ({ task, lastCompletion, onTick, onPress, onLongPress }) => {
+export const TaskCard: FC<TaskCardProps> = ({ task, lastCompletion, onTick, onUncheck, onPress, onLongPress }) => {
   const isDone = lastCompletion && !lastCompletion.is_skipped
   const isSkipped = lastCompletion?.is_skipped
-  const showRotate = task.frequency === '3x_week'
 
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
+
+  const tickScale = useRef(new Animated.Value(1)).current
+  const checkOpacity = useRef(new Animated.Value(isDone ? 1 : 0)).current
+  const flyAnim = useRef(new Animated.Value(0)).current
+
+  const flyTranslateY = flyAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 48] })
+  const flyOpacity = flyAnim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [1, 0.8, 0] })
+
+  const prevIsDone = useRef(isDone)
+
+  useEffect(() => {
+    if (isDone && !prevIsDone.current) {
+      flyAnim.setValue(0)
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(tickScale, { toValue: 0.8, duration: 80, useNativeDriver: true }),
+          Animated.spring(tickScale, { toValue: 1, friction: 4, tension: 200, useNativeDriver: true }),
+        ]),
+        Animated.timing(checkOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+        Animated.timing(flyAnim, {
+          toValue: 1,
+          duration: 520,
+          easing: (t) => 1 - Math.pow(1 - t, 4),
+          useNativeDriver: true,
+        }),
+      ]).start()
+    } else if (!isDone && prevIsDone.current) {
+      flyAnim.setValue(0)
+      Animated.timing(checkOpacity, { toValue: 0, duration: 100, useNativeDriver: true }).start()
+    }
+    prevIsDone.current = isDone
+  }, [isDone])
 
   const handleTick = () => {
+    if (isDone && lastCompletion && onUncheck) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      onUncheck(lastCompletion.id)
+      return
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
     onTick(task.id)
   }
 
   return (
-    <Pressable
-      onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={400}
+    <Animated.View style={{ transform: [{ translateY: flyTranslateY }], opacity: flyOpacity }}>
+    <View
       style={[
         styles.card,
         { backgroundColor: c.bg },
         isDone ? shadow('inset', 'sm') : shadow('raised', 'sm'),
       ]}
     >
-      <View style={[styles.cardInner, { opacity: isDone ? 0.7 : 1 }]}>
-        <View style={[styles.iconBox, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
-          <Text style={styles.iconText}>{task.icon}</Text>
-        </View>
-
-        <View style={styles.info}>
-          <Text
-            style={[
-              styles.name,
-              { color: c.textDark },
-              isDone && styles.nameDone,
-            ]}
-            numberOfLines={1}
-          >
-            {task.name}
-          </Text>
-          <View style={styles.meta}>
-            {isDone && lastCompletion ? (
-              <Text style={[styles.metaText, { color: c.textMid }]}>
-                Xong · {new Date(lastCompletion.completed_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-            ) : isSkipped ? (
-              <Text style={[styles.metaText, { color: c.textMid }]}>Bỏ qua</Text>
-            ) : (
-              <View style={styles.freqRow}>
-                {showRotate && <IconRotate size={11} color={c.textMid} />}
-                <Text style={[styles.metaText, { color: c.textMid }]}>
-                  {FREQ_LABEL[task.frequency] ?? task.frequency}
-                  {task.assignee_id ? '' : ' · Ai cũng được'}
-                </Text>
-              </View>
-            )}
+      <Pressable
+        onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={400}
+        style={styles.cardPressArea}
+      >
+        <View style={[styles.cardInner, { opacity: isDone ? 0.7 : 1 }]}>
+          <View style={[styles.iconBox, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
+            <Text style={styles.iconText}>{task.icon}</Text>
           </View>
-        </View>
 
-        <Pressable
-          onPress={handleTick}
+          <View style={styles.info}>
+            <Text
+              style={[
+                styles.name,
+                { color: c.textDark },
+                isDone && styles.nameDone,
+              ]}
+              numberOfLines={1}
+            >
+              {task.name}
+            </Text>
+            <View style={styles.meta}>
+              {isDone && lastCompletion ? (
+                <Text style={[styles.metaText, { color: c.textMid }]}>
+                  Xong · {new Date(lastCompletion.completed_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              ) : isSkipped ? (
+                <Text style={[styles.metaText, { color: c.textMid }]}>Bỏ qua</Text>
+              ) : (
+                <Text style={[styles.metaText, { color: c.textMid }]}>
+                  {task.assignee_id ? 'Của bạn' : 'Ai cũng được'}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.tickPlaceholder} />
+        </View>
+      </Pressable>
+
+      <Pressable
+        onPress={handleTick}
+        hitSlop={8}
+        style={styles.tickAbsolute}
+        accessibilityLabel={isDone ? 'Bỏ đánh dấu' : 'Đánh dấu xong'}
+      >
+        <Animated.View
           style={[
             styles.tickBtn,
             { backgroundColor: isDone ? c.accent : c.bg },
             isDone ? shadow('accent', 'sm') : shadow('inset', 'sm'),
+            { transform: [{ scale: tickScale }] },
           ]}
         >
-          {isDone && (
-            <Text style={styles.checkMark}>✓</Text>
-          )}
+          <Animated.Text style={[styles.checkMark, { opacity: checkOpacity }]}>✓</Animated.Text>
           {isSkipped && !isDone && (
             <Text style={[styles.checkMark, { color: c.textLight }]}>–</Text>
           )}
-        </Pressable>
-      </View>
-    </Pressable>
+        </Animated.View>
+      </Pressable>
+    </View>
+    </Animated.View>
   )
 }
 
 const styles = StyleSheet.create({
   card: {
+    borderRadius: 20,
+  },
+  cardPressArea: {
     borderRadius: 20,
   },
   cardInner: {
@@ -112,6 +152,18 @@ const styles = StyleSheet.create({
     padding: 12,
     paddingHorizontal: 14,
     gap: 12,
+  },
+  tickPlaceholder: {
+    width: 32,
+    height: 32,
+    flexShrink: 0,
+  },
+  tickAbsolute: {
+    position: 'absolute',
+    right: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
   },
   iconBox: {
     width: 42,

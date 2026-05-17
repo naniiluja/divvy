@@ -1,163 +1,150 @@
-import { useEffect, useState } from 'react'
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useCallback, useRef, useState } from 'react'
+import { View, Text, Pressable, ScrollView, Animated, RefreshControl } from 'react-native'
+import { useRouter, useFocusEffect } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useStore } from '@/stores'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
-import { getSpaceById, getSpaceMembers, getRecentCompletions } from '@/lib/api'
-import type { Space, SpaceMember, TaskCompletion } from '@/types'
-
-type MemberWithProfile = SpaceMember & { profiles?: { display_name?: string; avatar_emoji?: string } }
+import { useMembers } from '@/hooks/useMembers'
+import { useTabEnter } from '@/hooks/useTabEnter'
+import { useRefresh } from '@/hooks/useRefresh'
+import { AnimatedBar } from '@/components/ui/AnimatedBar'
 
 export default function MembersScreen() {
   const router = useRouter()
   const activeSpaceId = useStore((s) => s.activeSpaceId)
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
-  const [space, setSpace] = useState<Space | null>(null)
-  const [members, setMembers] = useState<MemberWithProfile[]>([])
-  const [completions, setCompletions] = useState<TaskCompletion[]>([])
+  const { space, members, memberStats, isLoading, refetch } = useMembers(activeSpaceId)
+  const enter = useTabEnter()
+  const [focusKey, setFocusKey] = useState(0)
+  const isMounted = useRef(false)
 
-  useEffect(() => {
-    if (!activeSpaceId) return
-    Promise.all([
-      getSpaceById(activeSpaceId),
-      getSpaceMembers(activeSpaceId),
-      getRecentCompletions(activeSpaceId, 7),
-    ]).then(([s, m, c]) => {
-      setSpace(s)
-      setMembers(m as MemberWithProfile[])
-      setCompletions(c)
-    })
-  }, [activeSpaceId])
+  useFocusEffect(useCallback(() => {
+    refetch()
+    if (isMounted.current) setFocusKey((n) => n + 1)
+    isMounted.current = true
+  }, []))
 
-  const memberStats = members
-    .map((m) => ({
-      ...m,
-      done7d: completions.filter((c) => c.completed_by === m.user_id && !c.is_skipped).length,
-      displayName: m.profiles?.display_name ?? m.user_id.slice(0, 6),
-      emoji: m.profiles?.avatar_emoji ?? '👤',
-    }))
-    .sort((a, b) => b.done7d - a.done7d)
-
-  const maxDone = Math.max(...memberStats.map((m) => m.done7d), 1)
+  const { refreshing, handleRefresh } = useRefresh(() => {
+    refetch()
+    setFocusKey((n) => n + 1)
+  })
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.titleRow}>
+    <SafeAreaView className="flex-1 bg-neu-bg dark:bg-neu-d-bg">
+      <ScrollView
+        contentContainerClassName="p-4 pb-28 gap-0"
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.accent} />}
+      >
+        <Animated.View style={{ transform: [{ translateY: enter.translateY }], opacity: enter.opacity }}>
+        <View className="flex-row items-end justify-between mb-[18px]">
           <View>
-            <Text style={[styles.title, { color: c.textDark }]}>Thành viên</Text>
-            <Text style={[styles.subtitle, { color: c.textMid }]}>
+            <Text className="text-[26px] font-bold tracking-tight text-text-dark dark:text-text-dark-d">
+              Thành viên
+            </Text>
+            <Text className="text-[13px] mt-1 text-text-mid dark:text-text-mid-d">
               {members.length} người trong "{space?.name ?? '…'}"
             </Text>
           </View>
           <Pressable
+            accessibilityLabel="Mời thành viên mới"
             onPress={() => activeSpaceId && router.push(`/(app)/space/invite/${activeSpaceId}` as never)}
-            style={[styles.inviteBtn, { backgroundColor: c.accent, ...shadow('accent', 'sm') }]}
+            className="px-[14px] py-2 rounded-full"
+            style={[{ backgroundColor: c.accent }, shadow('accent', 'sm')]}
           >
-            <Text style={styles.inviteBtnText}>+ Mời</Text>
+            <Text className="text-[12px] font-bold text-white">+ Mời</Text>
           </Pressable>
         </View>
 
-        <View style={[styles.leaderCard, { backgroundColor: c.bg, ...shadow('raised', 'md') }]}>
-          <View style={styles.leaderHeader}>
-            <Text style={[styles.leaderTitle, { color: c.textMid }]}>TUẦN NÀY</Text>
-            <Text style={[styles.leaderSub, { color: c.textLight }]}>Task đã hoàn thành</Text>
-          </View>
-          {memberStats.map((m, i) => (
-            <View key={m.user_id} style={[styles.barRow, { marginTop: i === 0 ? 0 : 12 }]}>
-              <View style={[styles.memberAvatar, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
-                <Text style={{ fontSize: 15 }}>{m.emoji}</Text>
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.memberName, { color: c.textDark }]} numberOfLines={1}>
-                  {m.displayName}
-                  {m.role === 'owner' && <Text style={[styles.roleTag, { color: c.textMid }]}> · owner</Text>}
-                </Text>
-                <View style={[styles.barBg, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
-                  <View style={[
-                    styles.barFill,
-                    { width: `${(m.done7d / maxDone) * 100}%` },
-                    i === 0 ? { backgroundColor: c.accent } : { backgroundColor: c.textLight },
-                  ]} />
-                </View>
-              </View>
-              <Text style={[styles.barCount, { color: c.textDark }]}>{m.done7d}</Text>
+        {!isLoading && (
+          <View
+            className="rounded-[28px] p-[18px] mb-[18px] bg-neu-bg dark:bg-neu-d-bg"
+            style={shadow('raised', 'md')}
+          >
+            <View className="flex-row items-center justify-between mb-[14px]">
+              <Text className="text-[11px] font-bold tracking-widest text-text-mid dark:text-text-mid-d">
+                TUẦN NÀY
+              </Text>
+              <Text className="text-[11px] text-text-light dark:text-text-light-d">
+                Task đã hoàn thành
+              </Text>
             </View>
-          ))}
-        </View>
-
-        <Text style={[styles.sectionLabel, { color: c.textMid }]}>TẤT CẢ ({members.length})</Text>
-        <View style={styles.memberList}>
-          {memberStats.map((m) => (
-            <View key={m.user_id} style={[styles.memberCard, { backgroundColor: c.bg, ...shadow('raised', 'sm') }]}>
-              <View style={[styles.memberAvatarLg, { backgroundColor: c.bg, ...shadow('raised', 'sm') }]}>
-                <Text style={{ fontSize: 24 }}>{m.emoji}</Text>
-                <View style={styles.onlineDot} />
+            {memberStats.map((m, i) => (
+              <View key={m.user_id} className={`flex-row items-center gap-[10px]${i === 0 ? '' : ' mt-3'}`}>
+                <View
+                  className="w-8 h-8 rounded-full items-center justify-center bg-neu-bg dark:bg-neu-d-bg"
+                  style={shadow('inset', 'sm')}
+                >
+                  <Text className="text-[15px]">{m.emoji}</Text>
+                </View>
+                <View className="flex-1 min-w-0">
+                  <Text className="text-[13px] font-semibold mb-1 text-text-dark dark:text-text-dark-d" numberOfLines={1}>
+                    {m.displayName}
+                    {m.role === 'owner' && (
+                      <Text className="font-medium text-[11px] text-text-mid dark:text-text-mid-d"> · owner</Text>
+                    )}
+                  </Text>
+                  <AnimatedBar
+                    pct={m.totalToday ? Math.min((m.doneToday / m.totalToday) * 100, 100) : 0}
+                    color={i === 0 ? c.accent : c.textLight}
+                    focusKey={focusKey}
+                  />
+                </View>
+                <Text className="text-[13px] font-extrabold min-w-[36px] text-right tracking-tight text-text-dark dark:text-text-dark-d">
+                  {m.doneToday}<Text className="text-[11px] font-medium text-text-light dark:text-text-light-d">/{m.totalToday}</Text>
+                </Text>
               </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={[styles.memberCardName, { color: c.textDark }]} numberOfLines={1}>
+            ))}
+          </View>
+        )}
+
+        <Text className="text-[11px] font-bold tracking-widest mb-[10px] px-[6px] text-text-mid dark:text-text-mid-d">
+          TẤT CẢ ({members.length})
+        </Text>
+        <View className="gap-[10px]">
+          {memberStats.map((m) => (
+            <View
+              key={m.user_id}
+              className="flex-row items-center gap-3 p-[14px] px-4 rounded-[22px] bg-neu-bg dark:bg-neu-d-bg"
+              style={shadow('raised', 'sm')}
+            >
+              <View className="relative">
+                <View
+                  className="w-[50px] h-[50px] rounded-full items-center justify-center bg-neu-bg dark:bg-neu-d-bg"
+                  style={shadow('raised', 'sm')}
+                >
+                  <Text className="text-2xl">{m.emoji}</Text>
+                </View>
+                <View className="absolute -right-0.5 -bottom-0.5 w-[14px] h-[14px] rounded-full bg-green-400 border-[2.5px] border-neu-bg dark:border-neu-d-bg" />
+              </View>
+              <View className="flex-1 min-w-0">
+                <Text className="text-[15px] font-bold tracking-tight text-text-dark dark:text-text-dark-d" numberOfLines={1}>
                   {m.displayName}
                   {m.role === 'owner' && (
-                    <Text style={[styles.roleChip, { color: c.accent }]}> · owner</Text>
+                    <Text style={{ color: c.accent }} className="text-[11px] font-semibold"> · owner</Text>
                   )}
                 </Text>
-                <Text style={[styles.memberCardSub, { color: c.textMid }]}>
-                  {m.done7d} task tuần này
+                <Text className="text-[11px] mt-0.5 text-text-mid dark:text-text-mid-d">
+                  {m.doneToday}/{m.totalToday} task hôm nay
                 </Text>
               </View>
             </View>
           ))}
           <Pressable
+            accessibilityLabel="Mời người mới vào space"
             onPress={() => activeSpaceId && router.push(`/(app)/space/invite/${activeSpaceId}` as never)}
-            style={[styles.inviteCard, { borderColor: c.textLight }]}
+            className="py-[18px] items-center justify-center rounded-[22px] border-2 border-dashed border-text-light dark:border-text-light-d"
           >
-            <Text style={[styles.inviteCardText, { color: c.textMid }]}>+ Mời người mới</Text>
+            <Text className="text-[13px] font-semibold text-text-mid dark:text-text-mid-d">
+              + Mời người mới
+            </Text>
           </Pressable>
         </View>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   )
 }
-
-const styles = StyleSheet.create({
-  scroll: { padding: 16, paddingBottom: 120, gap: 0 },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 18 },
-  title: { fontSize: 26, fontWeight: '700', letterSpacing: -0.65 },
-  subtitle: { fontSize: 13, marginTop: 4 },
-  inviteBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.pill },
-  inviteBtnText: { fontSize: 12, fontWeight: '700', color: '#fff' },
-  leaderCard: { borderRadius: RADIUS.card, padding: 18, marginBottom: 18 },
-  leaderHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-  leaderTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-  leaderSub: { fontSize: 11 },
-  barRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  memberAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  memberName: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
-  roleTag: { fontWeight: '500', fontSize: 11 },
-  barBg: { height: 8, borderRadius: 999, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 999 },
-  barCount: { fontSize: 14, fontWeight: '800', minWidth: 28, textAlign: 'right', letterSpacing: -0.3 },
-  sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 10, paddingHorizontal: 6 },
-  memberList: { gap: 10 },
-  memberCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, paddingHorizontal: 16, borderRadius: 22 },
-  memberAvatarLg: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  onlineDot: { position: 'absolute', right: -2, bottom: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#54D49B', borderWidth: 2.5, borderColor: 'white' },
-  memberCardName: { fontSize: 15, fontWeight: '700', letterSpacing: -0.15 },
-  roleChip: { fontSize: 11, fontWeight: '600' },
-  memberCardSub: { fontSize: 11, marginTop: 2 },
-  inviteCard: {
-    paddingVertical: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-  },
-  inviteCardText: { fontSize: 13, fontWeight: '600' },
-})

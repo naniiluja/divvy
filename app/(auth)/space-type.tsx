@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { NButton } from '@/components/ui/NButton'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 
 interface SpaceOption {
   id: string
@@ -25,8 +25,7 @@ export default function SpaceTypeScreen() {
   const [selected, setSelected] = useState<string | null>(null)
 
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const raisedCard = shadow('raised', 'md')
   const insetCard = shadow('inset', 'sm')
@@ -41,7 +40,6 @@ export default function SpaceTypeScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: c.bg }]}>
       <View style={styles.content}>
-        {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: c.textDark }]}>Loại Space của bạn?</Text>
           <Text style={[styles.subtitle, { color: c.textMid }]}>
@@ -49,7 +47,6 @@ export default function SpaceTypeScreen() {
           </Text>
         </View>
 
-        {/* Option cards */}
         <View style={styles.grid}>
           {SPACE_OPTIONS.map((option) => {
             const isActive = selected === option.id
@@ -68,7 +65,6 @@ export default function SpaceTypeScreen() {
                   },
                 ]}
               >
-                {/* Accent dot for active */}
                 {isActive && (
                   <View style={[styles.accentDot, { backgroundColor: c.accent }]} />
                 )}
@@ -99,7 +95,6 @@ export default function SpaceTypeScreen() {
           })}
         </View>
 
-        {/* CTA */}
         <NButton
           label="Tiếp tục →"
           onPress={handleContinue}
@@ -107,7 +102,6 @@ export default function SpaceTypeScreen() {
           fullWidth
         />
 
-        {/* Join existing */}
         <Pressable
           onPress={() => router.push('/(auth)/join-space')}
           style={styles.joinBtn}

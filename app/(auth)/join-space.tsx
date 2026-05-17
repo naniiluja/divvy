@@ -4,12 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { NHeader } from '@/components/ui/NHeader'
 import { JoinSpaceBody } from '@/components/space/JoinSpaceBody'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK } from '@/constants/theme'
 
 export default function JoinSpaceAuthScreen() {
   const router = useRouter()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }}>

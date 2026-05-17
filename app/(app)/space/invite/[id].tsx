@@ -3,9 +3,10 @@ import { View, Text, Pressable, Share, StyleSheet, Alert } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Clipboard from 'expo-clipboard'
+import QRCode from 'react-native-qrcode-svg'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import { NButton } from '@/components/ui/NButton'
 import { NHeader } from '@/components/ui/NHeader'
 import { useStore } from '@/stores'
@@ -24,8 +25,7 @@ export default function InviteScreen() {
   const [copied, setCopied] = useState(false)
 
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   useEffect(() => {
     if (!spaceId || !user?.id || !UUID_RE.test(spaceId)) {
@@ -65,19 +65,28 @@ export default function InviteScreen() {
           </Text>
         </View>
 
-        {isLoading ? (
-          <View style={[styles.linkCard, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
-            <Text style={[styles.linkLabel, { color: c.textLight }]}>Đang tạo link…</Text>
-          </View>
-        ) : (
-          <View style={[styles.linkCard, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
+        <View style={[styles.qrCard, { backgroundColor: c.bg, ...shadow('raised', 'md') }]}>
+          {isLoading || !inviteUrl ? (
+            <View style={styles.qrPlaceholder}>
+              <Text style={[styles.linkLabel, { color: c.textLight }]}>Đang tạo mã…</Text>
+            </View>
+          ) : (
+            <View style={styles.qrWrap}>
+              <QRCode
+                value={inviteUrl}
+                size={200}
+                color={c.textDark}
+                backgroundColor={c.bg}
+                ecl="M"
+              />
+            </View>
+          )}
+          <View style={styles.codeRow}>
             <Text style={[styles.linkLabel, { color: c.textLight }]}>MÃ MỜI</Text>
-            <Text style={[styles.codeText, { color: c.accent }]}>{shortCode}</Text>
-            <Text style={[styles.linkUrl, { color: c.textMid }]} numberOfLines={1}>
-              {inviteUrl}
-            </Text>
+            <Text style={[styles.codeText, { color: c.accent }]}>{shortCode || '--------'}</Text>
+            <Text style={[styles.expireText, { color: c.textLight }]}>Hiệu lực 7 ngày</Text>
           </View>
-        )}
+        </View>
 
         <View style={styles.actions}>
           <Pressable
@@ -99,12 +108,6 @@ export default function InviteScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.expireNote}>
-          <Text style={[styles.expireText, { color: c.textLight }]}>
-            Link có hiệu lực trong 7 ngày.
-          </Text>
-        </View>
-
         <View style={{ flex: 1 }} />
 
         <NButton label="Xong" onPress={() => router.back()} fullWidth />
@@ -118,18 +121,32 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 28,
-    paddingTop: 52,
+    paddingTop: 16,
     paddingBottom: 32,
     gap: 24,
   },
   header: { gap: 8 },
   title: { fontSize: 30, fontWeight: '700', letterSpacing: -1.05, lineHeight: 33 },
   subtitle: { fontSize: 15, lineHeight: 22.5 },
-  linkCard: {
+  qrCard: {
     borderRadius: RADIUS.card,
-    padding: 24,
-    gap: 8,
+    padding: 28,
     alignItems: 'center',
+    gap: 20,
+  },
+  qrWrap: {
+    padding: 16,
+    borderRadius: 16,
+  },
+  qrPlaceholder: {
+    width: 200,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  codeRow: {
+    alignItems: 'center',
+    gap: 4,
   },
   linkLabel: {
     fontSize: 11,
@@ -138,14 +155,11 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   codeText: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: '700',
-    letterSpacing: 4,
+    letterSpacing: 6,
   },
-  linkUrl: {
-    fontSize: 12,
-    marginTop: 4,
-  },
+  expireText: { fontSize: 12 },
   actions: {
     flexDirection: 'row',
     gap: 16,
@@ -161,6 +175,4 @@ const styles = StyleSheet.create({
   },
   actionEmoji: { fontSize: 28 },
   actionLabel: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
-  expireNote: { alignItems: 'center' },
-  expireText: { fontSize: 12 },
 })

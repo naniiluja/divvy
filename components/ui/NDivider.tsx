@@ -1,15 +1,13 @@
 import { View, Text, StyleSheet } from 'react-native'
 import type { FC } from 'react'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK } from '@/constants/theme'
 
 interface NDividerProps {
   label?: string
 }
 
 export const NDivider: FC<NDividerProps> = ({ label }) => {
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   if (!label) {
     return <View style={[styles.line, { backgroundColor: c.bg2 }]} />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import useSWR from 'swr'
 import { useStore } from '@/stores'
 import { getSpacesForUser, getSpaceMembers } from '@/lib/api'
 import type { Space, SpaceMember } from '@/types'
@@ -8,37 +8,34 @@ export function useSpace(): {
   spaces: Space[]
   members: SpaceMember[]
   isLoading: boolean
-  error: string | null
+  error: Error | null
 } {
   const activeSpaceId = useStore((s) => s.activeSpaceId)
   const userId = useStore((s) => s.user?.id)
-  const [spaces, setSpaces] = useState<Space[]>([])
-  const [members, setMembers] = useState<SpaceMember[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!userId) return
+  const {
+    data: spaces,
+    isLoading: spacesLoading,
+    error: spacesError,
+  } = useSWR<Space[]>(
+    userId ? ['spaces', userId] : null,
+    () => getSpacesForUser(userId!),
+  )
 
-    setIsLoading(true)
-    setError(null)
+  const {
+    data: members,
+    isLoading: membersLoading,
+    error: membersError,
+  } = useSWR<SpaceMember[]>(
+    activeSpaceId ? ['members', activeSpaceId] : null,
+    () => getSpaceMembers(activeSpaceId!),
+  )
 
-    getSpacesForUser(userId)
-      .then(setSpaces)
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setIsLoading(false))
-  }, [userId])
-
-  useEffect(() => {
-    if (!activeSpaceId) {
-      setMembers([])
-      return
-    }
-
-    getSpaceMembers(activeSpaceId)
-      .then(setMembers)
-      .catch((err: Error) => setError(err.message))
-  }, [activeSpaceId])
-
-  return { activeSpaceId, spaces, members, isLoading, error }
+  return {
+    activeSpaceId,
+    spaces: spaces ?? [],
+    members: members ?? [],
+    isLoading: spacesLoading || membersLoading,
+    error: spacesError ?? membersError ?? null,
+  }
 }

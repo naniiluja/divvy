@@ -10,7 +10,7 @@ import { NButton } from '@/components/ui/NButton'
 import { NHeader } from '@/components/ui/NHeader'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK, RADIUS } from '@/constants/theme'
+import { RADIUS } from '@/constants/theme'
 import { useStore } from '@/stores'
 import { supabase } from '@/lib/supabase'
 import { createSpace, getOrCreateInviteLink, getProfile } from '@/lib/api'
@@ -37,8 +37,7 @@ export default function CreateSpaceScreen() {
   const [isLoading, setIsLoading] = useState(false)
 
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data, error }) => {
@@ -88,7 +87,6 @@ export default function CreateSpaceScreen() {
   const handleCopyLink = async () => {
     if (!user?.id) return
     try {
-      // create space first if not yet, then generate invite link
       const space = await createSpace(spaceName.trim() || 'Space mới', spaceEmoji)
       const invite = await getOrCreateInviteLink(space.id, user.id)
       await Clipboard.setStringAsync(`divvy://join/${invite.token}`)
@@ -118,7 +116,6 @@ export default function CreateSpaceScreen() {
         params: { spaceId: space.id, spaceName: space.name },
       })
     } catch (err) {
-      console.error('[create-space] handleCreate failed:', err)
       const message = err instanceof Error
         ? `${err.message}${'code' in err && err.code ? ` (${err.code})` : ''}`
         : JSON.stringify(err)
@@ -173,7 +170,6 @@ export default function CreateSpaceScreen() {
         <Text style={[styles.sectionLabel, { color: c.textMid }]}>THÀNH VIÊN</Text>
 
         <View style={styles.memberList}>
-          {/* Current user row */}
           <View style={[styles.memberRow, { backgroundColor: c.bg, ...shadow('raised', 'sm') }]}>
             <View style={[styles.memberEmoji, { backgroundColor: c.bg, ...shadow('inset', 'sm') }]}>
               <Text style={styles.memberEmojiText}>{avatarEmoji}</Text>

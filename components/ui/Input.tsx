@@ -15,7 +15,7 @@ export const Input: FC<InputProps> = ({
   onChangeText,
   ...rest
 }) => {
-  const { colors: themeColors, isDark } = useTheme()
+  const { colors: themeColors } = useTheme()
 
   return (
     <View className="gap-2">
@@ -37,7 +37,7 @@ export const Input: FC<InputProps> = ({
       >
         <TextInput
           onChangeText={onChangeText}
-          placeholderTextColor={isDark ? themeColors.textLight : themeColors.textLight}
+          placeholderTextColor={themeColors.textLight}
           className="text-text-dark dark:text-text-dark-d text-base font-body"
           {...rest}
         />

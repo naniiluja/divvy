@@ -5,15 +5,13 @@ import { NButton } from '@/components/ui/NButton'
 import { NHeader } from '@/components/ui/NHeader'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
-import { LIGHT, DARK } from '@/constants/theme'
 import { supabase } from '@/lib/supabase'
 
 export default function OtpScreen() {
   const router = useRouter()
   const { method, value } = useLocalSearchParams<{ method: 'phone' | 'email'; value: string }>()
   const { shadow } = useNeumorphic()
-  const { isDark } = useTheme()
-  const c = isDark ? DARK : LIGHT
+  const { c } = useTheme()
 
   const OTP_LEN = 6
   const [digits, setDigits] = useState<string[]>(Array(OTP_LEN).fill(''))
@@ -82,7 +80,6 @@ export default function OtpScreen() {
           </Text>
         </View>
 
-        {/* 6 OTP boxes */}
         <View style={styles.otpRow}>
           {digits.map((digit, i) => (
             <View
@@ -110,7 +107,6 @@ export default function OtpScreen() {
           ))}
         </View>
 
-        {/* Resend */}
         <View style={styles.resendRow}>
           <Text style={[{ fontSize: 14, color: c.textMid }]}>Chưa nhận được? </Text>
           <Pressable onPress={handleResend} style={styles.resendBtn}>
