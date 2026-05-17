@@ -9,14 +9,14 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated'
-import { StyleProp, TextStyle } from 'react-native'
+import { StyleProp, TextStyle, ViewStyle } from 'react-native'
 
 interface ShinyTextProps {
   text: string
   color?: string
   shineColor?: string
   speed?: number
-  style?: StyleProp<TextStyle>
+  style?: StyleProp<ViewStyle>
   textStyle?: StyleProp<TextStyle>
 }
 

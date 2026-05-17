@@ -47,7 +47,15 @@
           "iosUrlScheme": "com.googleusercontent.apps.637074957901-5bretnioiedgfr37lrr4uu4lghutmngt"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Divvy cần micro để nhận giọng nói của bạn.",
+          "speechRecognitionPermission": "Divvy dùng nhận dạng giọng nói để điền mô tả task.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
+      ]
     ],
     "extra": {
       "googleWebClientId": "637074957901-ga51vqfuva6hduqmtvh594elkrtpsrs4.apps.googleusercontent.com",

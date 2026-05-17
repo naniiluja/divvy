@@ -19,6 +19,7 @@ import { ShinyText } from '@/components/ui/ShinyText'
 import { useStore } from '@/stores'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
+import { useSpeechInput } from '@/hooks/useSpeechInput'
 import { RADIUS, type ThemeColors } from '@/constants/theme'
 import { getSpaceMembers, callGenerateTasks, getProfile, type GeneratedTask } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
@@ -130,6 +131,9 @@ export default function AIGenerateScreen() {
 
   const [phase, setPhase] = useState<Phase>('prompt')
   const [prompt, setPrompt] = useState('')
+  const { isListening, start: startSpeech, stop: stopSpeech } = useSpeechInput((text) => {
+    setPrompt((prev) => (prev ? `${prev} ${text}` : text))
+  })
   const [authUserId, setAuthUserId] = useState<string | null>(null)
   const [members, setMembers] = useState<SpaceMember[]>([])
   const [tasks, setTasks] = useState<GeneratedTask[]>([])
@@ -269,6 +273,16 @@ export default function AIGenerateScreen() {
               multiline
               style={[styles.textarea, { color: c.textDark }]}
             />
+            <Pressable
+              accessibilityLabel={isListening ? 'Dừng ghi âm' : 'Nhấn để nói'}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                if (isListening) { stopSpeech() } else { startSpeech() }
+              }}
+              style={[styles.micBtn, { backgroundColor: c.bg, ...shadow(isListening ? 'accent' : 'raised', 'sm') }]}
+            >
+              <MicIcon color={isListening ? c.accent : c.textMid} isActive={isListening} />
+            </Pressable>
           </View>
 
           <Text style={[styles.sampleLabel, { color: c.textLight }]}>GỢI Ý</Text>
@@ -386,6 +400,28 @@ export default function AIGenerateScreen() {
   )
 }
 
+function MicIcon({ color, isActive }: { color: string; isActive: boolean }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+        stroke={color}
+        strokeWidth={isActive ? 2 : 1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M19 10v2a7 7 0 0 1-14 0v-2"
+        stroke={color}
+        strokeWidth={isActive ? 2 : 1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M12 19v4M8 23h8" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    </Svg>
+  )
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: {
@@ -410,7 +446,17 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '700', letterSpacing: -0.6, marginTop: 4 },
   subtitle: { fontSize: 14, lineHeight: 20 },
   textareaWrap: { borderRadius: RADIUS.card, padding: 16, minHeight: 130, marginTop: 8 },
-  textarea: { fontSize: 15, fontWeight: '500', lineHeight: 22, textAlignVertical: 'top', minHeight: 100 },
+  textarea: { fontSize: 15, fontWeight: '500', lineHeight: 22, textAlignVertical: 'top', minHeight: 100, paddingBottom: 44 },
+  micBtn: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   sampleLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, marginTop: 12 },
   sampleList: { gap: 8 },
   sampleChip: {

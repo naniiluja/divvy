@@ -35,19 +35,27 @@ Deno.serve(async (req: Request) => {
 
     let totalSent = 0
 
-    for (const task of overdueTasks) {
-      const { data: members } = await supabase
-        .from('space_members')
-        .select('user_id')
-        .eq('space_id', task.space_id)
+    for (const task of overdueTasks as { id: string; space_id: string; name: string; icon: string; assignee_id: string | null }[]) {
+      const recipientIds: string[] = []
 
-      if (!members?.length) continue
+      if (task.assignee_id) {
+        recipientIds.push(task.assignee_id)
+      } else {
+        const { data: members } = await supabase
+          .from('space_members')
+          .select('user_id')
+          .eq('space_id', task.space_id)
+        if (members?.length) {
+          recipientIds.push(...members.map((m: { user_id: string }) => m.user_id))
+        }
+      }
 
-      const memberIds = members.map((m: { user_id: string }) => m.user_id)
+      if (!recipientIds.length) continue
+
       const { data: profiles } = await supabase
         .from('profiles')
         .select('expo_push_token')
-        .in('id', memberIds)
+        .in('id', recipientIds)
         .not('expo_push_token', 'is', null)
 
       if (!profiles?.length) continue

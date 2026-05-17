@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, Pressable, StyleSheet, Animated, Easing } from 'react-native'
+import { View, Text, Pressable, StyleSheet, Animated, Easing, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Notifications from 'expo-notifications'
@@ -37,13 +37,21 @@ export default function NotifPermissionScreen() {
   const handleEnable = async () => {
     setIsLoading(true)
     try {
-      await Notifications.requestPermissionsAsync()
+      const { status } = await Notifications.requestPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert(
+          'Chưa bật thông báo',
+          'Bạn có thể bật sau trong Cài đặt → Divvy → Thông báo.',
+          [{ text: 'OK', onPress: () => router.replace('/(auth)/done') }],
+        )
+        return
+      }
     } catch {
-      // ignore — flow continues regardless of grant result
+      // ignore
     } finally {
       setIsLoading(false)
-      router.replace('/(auth)/done')
     }
+    router.replace('/(auth)/done')
   }
 
   const handleSkip = () => router.replace('/(auth)/done')

@@ -3,11 +3,13 @@ import { View, Text, Pressable, TextInput, ScrollView, StyleSheet } from 'react-
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
+import Svg, { Path } from 'react-native-svg'
 import { NHeader } from '@/components/ui/NHeader'
 import { NButton } from '@/components/ui/NButton'
 import { ShinyText } from '@/components/ui/ShinyText'
 import { useNeumorphic } from '@/hooks/useNeumorphic'
 import { useTheme } from '@/hooks/useTheme'
+import { useSpeechInput } from '@/hooks/useSpeechInput'
 import { RADIUS } from '@/constants/theme'
 
 const SAMPLES = [
@@ -24,6 +26,9 @@ export default function AIPromptScreen() {
 
   const [prompt, setPrompt] = useState('')
   const valid = prompt.trim().length >= 5
+  const { isListening, start: startSpeech, stop: stopSpeech } = useSpeechInput((text) => {
+    setPrompt((prev) => (prev ? `${prev} ${text}` : text))
+  })
 
   const handleGenerate = () => {
     if (!valid) return
@@ -67,6 +72,16 @@ export default function AIPromptScreen() {
             textAlignVertical="top"
             style={[styles.textareaInput, { color: c.textDark }]}
           />
+          <Pressable
+            accessibilityLabel={isListening ? 'Dừng ghi âm' : 'Nhấn để nói'}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+              if (isListening) { stopSpeech() } else { startSpeech() }
+            }}
+            style={[styles.micBtn, { backgroundColor: c.bg, ...shadow(isListening ? 'accent' : 'raised', 'sm') }]}
+          >
+            <MicIcon color={isListening ? c.accent : c.textMid} isActive={isListening} />
+          </Pressable>
         </View>
 
         <Text style={[styles.sampleLabel, { color: c.textMid }]}>GỢI Ý</Text>
@@ -99,6 +114,28 @@ export default function AIPromptScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+  )
+}
+
+function MicIcon({ color, isActive }: { color: string; isActive: boolean }) {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"
+        stroke={color}
+        strokeWidth={isActive ? 2 : 1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M19 10v2a7 7 0 0 1-14 0v-2"
+        stroke={color}
+        strokeWidth={isActive ? 2 : 1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M12 19v4M8 23h8" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    </Svg>
   )
 }
 
@@ -138,6 +175,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 22,
     minHeight: 110,
+    paddingBottom: 44,
+  },
+  micBtn: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sampleLabel: {
     fontSize: 11,
